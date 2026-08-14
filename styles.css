@@ -1,0 +1,23 @@
+.zotero-excalidraw-sync-status {
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  color: var(--text-muted);
+}
+
+.workspace-split.mod-root.zotero-canvas-focus-mode
+  .workspace-split:not(.zotero-canvas-focus-ancestor),
+.workspace-split.mod-root.zotero-canvas-focus-mode
+  .workspace-tabs:not(.zotero-canvas-focus-ancestor) {
+  display: none !important;
+}
+
+.workspace-split.mod-root.zotero-canvas-focus-mode
+  .zotero-canvas-focus-ancestor {
+  flex: 1 1 100% !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+}

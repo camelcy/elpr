@@ -1,0 +1,25 @@
+{
+  "name": "zotero-excalidraw-sync",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local Zotero annotation sync for Obsidian Excalidraw",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "node esbuild.config.mjs production",
+    "dev": "node esbuild.config.mjs",
+    "typecheck": "tsc --noEmit",
+    "test:ts": "tsx --test tests-ts/*.test.ts",
+    "test:py": "python -m unittest discover -s tests -v",
+    "test": "npm run typecheck && npm run test:ts && npm run test:py"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "builtin-modules": "^4.0.0",
+    "esbuild": "^0.25.0",
+    "obsidian": "^1.8.0",
+    "tslib": "^2.8.1",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}
+

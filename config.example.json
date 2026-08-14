@@ -1,0 +1,17 @@
+{
+  "zoteroApiUrl": "http://127.0.0.1:23119/api/users/0",
+  "listenHost": "127.0.0.1",
+  "listenPort": 27119,
+  "pollIntervalSeconds": 10,
+  "fetchLimit": 100,
+  "bootstrapLimit": 100,
+  "vaultPath": "D:\\Obsidian\\Steins Gate",
+  "imagesPath": "Excalidraw/Images",
+  "dataPath": "D:\\elpr\\data",
+  "mappingFile": "D:\\elpr\\data\\paper_canvas_map.json",
+  "stateFile": "D:\\elpr\\data\\sync_state.json",
+  "logFile": "D:\\elpr\\data\\service.log",
+  "imageScale": 4,
+  "deletionCheckIntervalSeconds": 300,
+  "annotationAllowlist": []
+}

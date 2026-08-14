@@ -1,0 +1,19 @@
+{
+  "manifest_version": 2,
+  "name": "Zotero Excalidraw Canvas",
+  "version": "0.1.6",
+  "description": "Creates or opens a bound Obsidian Excalidraw canvas for the selected Zotero item.",
+  "author": "ELPR",
+  "icons": {
+    "48": "icon.svg",
+    "96": "icon.svg"
+  },
+  "applications": {
+    "zotero": {
+      "id": "zotero-excalidraw-canvas@elpr.invalid",
+      "update_url": "https://example.invalid/zotero-excalidraw-canvas/updates.json",
+      "strict_min_version": "8.0",
+      "strict_max_version": "9.*"
+    }
+  }
+}
