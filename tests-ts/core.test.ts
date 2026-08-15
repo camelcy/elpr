@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  PAPER_CANVAS_TEMPLATE,
   PLUGIN_DATA_KEY,
   annotationElementId,
   annotationTextBlocks,
   canvasBaseName,
   compareQueueItems,
   elementsForAnnotation,
+  paperCanvasTitle,
   wrapTextForCanvas,
   zoteroItemLink,
 } from "../src/core";
@@ -94,4 +96,35 @@ test("canvas filenames use metadata and remove unsafe path characters", () => {
 
 test("paper titles link back to the parent Zotero item", () => {
   assert.equal(zoteroItemLink("PAPER001"), "zotero://select/library/items/PAPER001");
+});
+
+test("paper canvas template matches the standard three-section layout", () => {
+  assert.deepEqual(
+    PAPER_CANVAS_TEMPLATE.sections.map(({ label, backgroundColor }) => ({ label, backgroundColor })),
+    [
+      { label: "主要工作", backgroundColor: "#ffec99" },
+      { label: "解决问题/重要进展", backgroundColor: "#ffc9c9" },
+      { label: "优化方向", backgroundColor: "#a5d8ff" },
+    ],
+  );
+  assert.equal(PAPER_CANVAS_TEMPLATE.title.fontFamily, 5);
+  assert.equal(PAPER_CANVAS_TEMPLATE.title.fontSize, 36);
+  assert.equal(PAPER_CANVAS_TEMPLATE.sectionWidth, 712);
+  assert.equal(PAPER_CANVAS_TEMPLATE.sectionHeight, 367);
+  assert.deepEqual(PAPER_CANVAS_TEMPLATE.roundness, { type: 3 });
+  assert.equal(PAPER_CANVAS_TEMPLATE.initialViewport.zoom.value, 1);
+});
+
+test("paper canvas title stays on one line", () => {
+  assert.equal(
+    paperCanvasTitle({
+      requestId: "request",
+      parentItemKey: "PAPER001",
+      title: "A long paper title\nwith extra   whitespace",
+      year: "2024",
+      firstCreator: "Doe",
+      requestedAt: "2026-01-01T00:00:00Z",
+    }),
+    "A long paper title with extra whitespace",
+  );
 });

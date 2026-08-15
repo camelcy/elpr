@@ -1,11 +1,13 @@
 import { App, TFile, WorkspaceLeaf } from "obsidian";
 import {
+  PAPER_CANVAS_TEMPLATE,
   PLUGIN_DATA_KEY,
   annotationElementId,
   annotationTextBlocks,
   calculateBounds,
   elementSyncData,
   elementsForAnnotation,
+  paperCanvasTitle,
   zoteroItemLink,
   wrapTextForCanvas,
 } from "./core";
@@ -54,7 +56,9 @@ interface ExcalidrawAutomateLike {
 interface ExcalidrawViewLike {
   file?: TFile;
   _loaded?: boolean;
-  excalidrawAPI?: unknown;
+  excalidrawAPI?: {
+    updateScene?: (sceneData: { appState?: Record<string, unknown> }) => void;
+  };
   forceSave?: () => Promise<void>;
 }
 
@@ -94,6 +98,7 @@ export class ExcalidrawWriter {
     ea.reset();
     ea.setView(handle.view);
     const scene = ea.getViewElements().filter((element) => !element.isDeleted);
+    const shouldAddTemplate = scene.length === 0;
     const existing = scene.find((element) => {
       const data = elementSyncData(element);
       return data?.role === "paper-title" && data?.parentItemKey === request.parentItemKey;
@@ -102,14 +107,15 @@ export class ExcalidrawWriter {
     try {
       if (existing) return;
       const zoteroLink = zoteroItemLink(request.parentItemKey);
-      const title = wrapTextForCanvas(request.title.trim() || `Zotero ${request.parentItemKey}`, 56);
-      ea.style.strokeColor = "#1e1e1e";
+      const title = paperCanvasTitle(request);
+      ea.style.strokeColor = PAPER_CANVAS_TEMPLATE.strokeColor;
       ea.style.backgroundColor = "transparent";
       ea.style.opacity = 100;
-      ea.style.fontSize = 32;
+      ea.style.fontSize = PAPER_CANVAS_TEMPLATE.title.fontSize;
+      ea.style.fontFamily = PAPER_CANVAS_TEMPLATE.title.fontFamily;
       const titleId = ea.addText(
-        0,
-        0,
+        PAPER_CANVAS_TEMPLATE.title.x,
+        PAPER_CANVAS_TEMPLATE.title.y,
         title,
         { autoResize: true, textAlign: "left" },
         annotationElementId(request.parentItemKey, "paper-title"),
@@ -124,13 +130,72 @@ export class ExcalidrawWriter {
           zoteroLink,
         },
       });
+      if (shouldAddTemplate) this.addPaperTemplate(ea, request.parentItemKey);
       const saved = await ea.addElementsToView(false, true, true);
       if (!saved) throw new Error("Excalidraw rejected the linked paper title");
+      if (shouldAddTemplate) this.setInitialViewport(handle.view);
       await handle.view.forceSave?.();
     } finally {
       ea.destroy();
       handle.temporaryLeaf?.detach();
     }
+  }
+
+  private addPaperTemplate(ea: ExcalidrawAutomateLike, parentItemKey: string): void {
+    for (const section of PAPER_CANVAS_TEMPLATE.sections) {
+      ea.style.strokeColor = PAPER_CANVAS_TEMPLATE.strokeColor;
+      ea.style.backgroundColor = "transparent";
+      ea.style.opacity = 100;
+      ea.style.fontSize = PAPER_CANVAS_TEMPLATE.sectionLabelFontSize;
+      ea.style.fontFamily = PAPER_CANVAS_TEMPLATE.title.fontFamily;
+      const labelId = ea.addText(
+        PAPER_CANVAS_TEMPLATE.sectionLabelX,
+        section.labelY,
+        section.label,
+        { autoResize: true, textAlign: "left" },
+        annotationElementId(parentItemKey, `template-${section.key}-label`),
+      );
+      this.tagPaperTemplateElement(ea, labelId, parentItemKey, "template-section-label", section.key);
+
+      ea.style.strokeColor = PAPER_CANVAS_TEMPLATE.strokeColor;
+      ea.style.backgroundColor = section.backgroundColor;
+      ea.style.fillStyle = "solid";
+      ea.style.strokeWidth = PAPER_CANVAS_TEMPLATE.strokeWidth;
+      ea.style.roughness = 1;
+      ea.style.roundness = PAPER_CANVAS_TEMPLATE.roundness;
+      ea.style.opacity = 100;
+      const backgroundId = ea.addRect(
+        PAPER_CANVAS_TEMPLATE.sectionX,
+        section.boxY,
+        PAPER_CANVAS_TEMPLATE.sectionWidth,
+        PAPER_CANVAS_TEMPLATE.sectionHeight,
+        annotationElementId(parentItemKey, `template-${section.key}-background`),
+      );
+      this.tagPaperTemplateElement(ea, backgroundId, parentItemKey, "template-section-background", section.key);
+    }
+  }
+
+  private tagPaperTemplateElement(
+    ea: ExcalidrawAutomateLike,
+    id: string,
+    parentItemKey: string,
+    role: string,
+    sectionKey: string,
+  ): void {
+    ea.addAppendUpdateCustomData(id, {
+      [PLUGIN_DATA_KEY]: {
+        schemaVersion: 2,
+        parentItemKey,
+        role,
+        sectionKey,
+      },
+    });
+  }
+
+  private setInitialViewport(view: ExcalidrawViewLike): void {
+    view.excalidrawAPI?.updateScene?.({
+      appState: PAPER_CANVAS_TEMPLATE.initialViewport,
+    });
   }
 
   async write(canvasPath: string, items: QueueItem[]): Promise<ImportResult[]> {
@@ -339,10 +404,23 @@ export class ExcalidrawWriter {
 
   private nextPlacement(ea: ExcalidrawAutomateLike, scene: ExcalidrawElementLike[]): { x: number; y: number } {
     const all = [...scene, ...ea.getElements()];
-    const inboxElements = all.filter((element) => Boolean(elementSyncData(element)) && !element.isDeleted);
+    const inboxElements = all.filter((element) => {
+      const data = elementSyncData(element);
+      return typeof data?.annotationKey === "string" && !element.isDeleted;
+    });
     if (inboxElements.length > 0) {
       const bounds = calculateBounds(inboxElements);
       return { x: bounds.minX, y: bounds.maxY + 40 };
+    }
+    const firstTemplateBox = all.find((element) => {
+      const data = elementSyncData(element);
+      return data?.role === "template-section-background" && data?.sectionKey === "main-work" && !element.isDeleted;
+    });
+    if (firstTemplateBox) {
+      return {
+        x: firstTemplateBox.x + firstTemplateBox.width + 160,
+        y: firstTemplateBox.y,
+      };
     }
     const bounds = calculateBounds(scene);
     return { x: bounds.maxX + 160, y: bounds.minY };

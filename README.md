@@ -7,7 +7,7 @@
 - 自动轮询 Zotero 的 `highlight` 与 `image` annotation。
 - `Zotero parent item key → Excalidraw canvas path` 稳定映射。
 - 无映射批注保留为 `pending`；安装配套 Zotero XPI 后，可从 Zotero 右键或条目详情中的 Excalidraw 区块一键创建、打开并绑定画布。
-- Zotero 条目详情会显示画布关联状态和路径；新建或首次打开画布时会补充一个可点击的文章标题，点击可回到对应 Zotero 条目。
+- Zotero 条目详情会显示画布关联状态和路径；新建空白画布会按统一模板生成单行手写标题，以及“主要工作”“解决问题/重要进展”“优化方向”三个彩色整理区，并以 100% 缩放打开。标题可点击回到对应 Zotero 条目；已有非空画布仍只补充缺失的标题，不改动原布局。
 - 文字批注拆成“评论/翻译”和“原文”两个独立文本块，默认按“评论/翻译 → 原文”排列，可在插件设置中切换。
 - 图片按 Zotero PDF 坐标、本地 PDF crop box 与页面旋转信息，用 PyMuPDF 在本机裁剪。
 - 每个文本块（图片批注则为图片本身）都直接链接到 Zotero，不再生成页码或单独按钮；链接格式为 `zotero://open-pdf/library/items/<attachmentKey>?page=<page>&annotation=<annotationKey>`。

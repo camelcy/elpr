@@ -24,6 +24,24 @@ export interface AnnotationTextBlock {
   text: string;
 }
 
+export const PAPER_CANVAS_TEMPLATE = {
+  title: { x: 0, y: 0, fontSize: 36, fontFamily: 5 },
+  sectionX: 74,
+  sectionLabelX: 80,
+  sectionWidth: 712,
+  sectionHeight: 367,
+  sectionLabelFontSize: 36,
+  strokeColor: "#1e1e1e",
+  strokeWidth: 4,
+  roundness: { type: 3 },
+  initialViewport: { zoom: { value: 1 }, scrollX: 48, scrollY: 48 },
+  sections: [
+    { key: "main-work", label: "主要工作", labelY: 68, boxY: 120, backgroundColor: "#ffec99" },
+    { key: "progress", label: "解决问题/重要进展", labelY: 516, boxY: 570, backgroundColor: "#ffc9c9" },
+    { key: "optimization", label: "优化方向", labelY: 963, boxY: 1021, backgroundColor: "#a5d8ff" },
+  ],
+} as const;
+
 export function annotationElementId(annotationKey: string, role: string): string {
   let hash = 2166136261;
   for (const character of `${annotationKey}:${role}`) {
@@ -35,6 +53,10 @@ export function annotationElementId(annotationKey: string, role: string): string
 
 export function zoteroItemLink(parentItemKey: string): string {
   return `zotero://select/library/items/${parentItemKey}`;
+}
+
+export function paperCanvasTitle(request: CanvasRequestItem): string {
+  return (request.title.trim() || `Zotero ${request.parentItemKey}`).replace(/\s+/g, " ");
 }
 
 export function elementSyncData(element: ElementLike): Record<string, unknown> | undefined {
