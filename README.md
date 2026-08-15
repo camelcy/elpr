@@ -60,6 +60,12 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build-zotero-xpi.ps1
 
 在 Zotero 中打开“工具 → 插件”，从文件安装 `D:\elpr\dist\zotero-excalidraw-canvas-0.1.6.xpi`。安装后重启 Zotero；选中文献或其 PDF 附件，右键执行“创建/打开 Excalidraw 画布”，或在条目详情的“Excalidraw 画布”区块点击按钮。Windows 下会直接启动 `D:\Program Files\Obsidian\Obsidian.exe`，不经过外部协议确认框；目标文件由 Excalidraw 插件打开，避免 `.excalidraw.md` 被当作普通 Markdown。
 
+## 发布 Zotero 插件
+
+发布由 GitHub Actions 手动触发，不会因普通的代码推送自动创建 Release。准备新版时，先将 `zotero-plugin\manifest.json` 中的 `version` 更新为新版本号并推送到 `main`；然后在 GitHub 仓库的 **Actions → 发布 Zotero 插件 → Run workflow** 中选择 `main` 并运行。
+
+该流程会运行测试、构建 XPI、创建或更新同版本的 GitHub Release、上传安装包，并把带 SHA-256 校验值的 `zotero-updates.json` 提交回 `main`。首次使用前，请确认仓库允许 GitHub Actions 对 `main` 分支写入；若 `main` 受保护，需要为 GitHub Actions 开放写入权限或调整分支保护规则。
+
 ## 配置与映射
 
 服务配置在 `D:\elpr\config.json`。本机 MVP 验证完成后，运行配置已经把 `annotationAllowlist` 设为 `[]`，会接收之后新增的所有支持类型批注；历史 4298 条不会被整库回灌。

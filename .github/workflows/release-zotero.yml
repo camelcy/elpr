@@ -1,0 +1,119 @@
+name: 发布 Zotero 插件
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: 检出 main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 确认从 main 手动触发
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF -ne 'refs/heads/main') {
+            throw '发布只能从 main 分支手动触发。'
+          }
+
+      - name: 读取并校验版本
+        id: version
+        shell: pwsh
+        run: |
+          $manifest = Get-Content -Raw 'zotero-plugin/manifest.json' | ConvertFrom-Json
+          $version = [string]$manifest.version
+          if ($version -notmatch '^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$') {
+            throw "无效的插件版本号：$version"
+          }
+          "value=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: 配置 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 配置 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 安装依赖并运行测试
+        shell: pwsh
+        run: |
+          npm ci
+          python -m pip install -r requirements.txt
+          npm test
+
+      - name: 构建 Zotero XPI
+        shell: pwsh
+        run: .\scripts\build-zotero-xpi.ps1
+
+      - name: 创建或更新 GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          $asset = "dist/zotero-excalidraw-canvas-$env:VERSION.xpi"
+          & gh release view $env:VERSION --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) {
+            & gh release upload $env:VERSION $asset --clobber --repo $env:GITHUB_REPOSITORY
+          }
+          else {
+            & gh release create $env:VERSION $asset --title $env:VERSION --generate-notes --repo $env:GITHUB_REPOSITORY
+          }
+          if ($LASTEXITCODE -ne 0) {
+            throw 'GitHub Release 创建或上传失败。'
+          }
+
+      - name: 更新 Zotero 自动更新清单
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          $asset = "dist/zotero-excalidraw-canvas-$env:VERSION.xpi"
+          $hash = (Get-FileHash -Algorithm SHA256 $asset).Hash.ToLowerInvariant()
+          $updatesPath = 'zotero-updates.json'
+          $updates = Get-Content -Raw $updatesPath | ConvertFrom-Json
+          $addonId = 'zotero-excalidraw-canvas@elpr.invalid'
+          $addon = $updates.addons.PSObject.Properties[$addonId].Value
+          if ($null -eq $addon) {
+            throw "在 $updatesPath 中找不到 $addonId。"
+          }
+          $newUpdate = [pscustomobject][ordered]@{
+            version = $env:VERSION
+            update_link = "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$env:VERSION/zotero-excalidraw-canvas-$env:VERSION.xpi"
+            update_hash = "sha256:$hash"
+            applications = [pscustomobject][ordered]@{
+              zotero = [pscustomobject][ordered]@{
+                strict_min_version = '8.0'
+                strict_max_version = '9.*'
+              }
+            }
+          }
+          $addon.updates = @($newUpdate) + @($addon.updates | Where-Object { $_.version -ne $env:VERSION })
+          $json = ($updates | ConvertTo-Json -Depth 10) + "`n"
+          [System.IO.File]::WriteAllText((Resolve-Path $updatesPath), $json, [System.Text.UTF8Encoding]::new($false))
+
+      - name: 提交自动更新清单
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add zotero-updates.json
+          git diff --cached --quiet
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host '自动更新清单无需变更。'
+            exit 0
+          }
+          git commit -m "chore: publish Zotero add-on $env:VERSION"
+          git push origin HEAD:main
