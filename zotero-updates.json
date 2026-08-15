@@ -5,7 +5,7 @@
         {
           "version": "0.1.9",
           "update_link": "https://github.com/camelcy/elpr/releases/download/0.1.9/zotero-excalidraw-canvas-0.1.9.xpi",
-          "update_hash": "sha256:78ce0b4ad6f3fa292e59f2c1af7aeed7f737d02284feeeb0ede99f593ebd2af8",
+          "update_hash": "sha256:7b08263b5518bb21c4ee662c06138dfe8386c26dfaca3fb2145dc4b78107f01f",
           "applications": {
             "zotero": {
               "strict_min_version": "8.0",
