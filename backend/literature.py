@@ -44,7 +44,8 @@ def yaml_string(value: str) -> str:
 
 
 def excalidraw_wikilink(canvas_path: str) -> str:
-    return f"[[{canvas_path.replace('\\', '/')}|Excalidraw 证据画布]]" if canvas_path else ""
+    normalized_path = canvas_path.replace("\\", "/")
+    return f"[[{normalized_path}|Excalidraw 证据画布]]" if normalized_path else ""
 
 
 def _frontmatter(text: str) -> tuple[int, int, str] | None:
