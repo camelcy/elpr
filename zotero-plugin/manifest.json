@@ -1,8 +1,8 @@
 {
   "manifest_version": 2,
   "name": "Zotero Excalidraw Canvas",
-  "version": "0.1.7",
-  "description": "Creates or opens a bound Obsidian Excalidraw canvas for the selected Zotero item.",
+  "version": "0.1.8",
+  "description": "Creates or opens an Obsidian literature card and bound Excalidraw canvas for the selected Zotero item.",
   "author": "ELPR",
   "icons": {
     "48": "icon.svg",

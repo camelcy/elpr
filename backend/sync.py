@@ -13,6 +13,7 @@ from urllib.parse import unquote, urlparse
 
 from .config import ServiceConfig
 from .crop import crop_image_annotation, valid_png
+from .literature import LiteratureCardStore
 from .store import MappingStore, StateStore
 from .zotero import ZoteroClient, ZoteroNotFound
 
@@ -84,6 +85,7 @@ class SyncEngine:
         self.client = client or ZoteroClient(config.zotero_api_url)
         self.state = state or StateStore(config.state_file)
         self.mappings = mappings or MappingStore(config.mapping_file)
+        self.literature_cards = LiteratureCardStore(config.vault_path, config.literature_folder, self.mappings)
         self.lock = threading.RLock()
         self.logger = logging.getLogger("zotero-excalidraw-sync")
 
@@ -320,6 +322,12 @@ class SyncEngine:
                 "mapped": bool(canvas_path),
                 "canvasPath": canvas_path or "",
             }
+
+    def literature_card_status(self, parent_item_key: str) -> dict[str, Any]:
+        return self.literature_cards.status(parent_item_key)
+
+    def create_or_open_literature_card(self, payload: dict[str, Any]) -> dict[str, Any]:
+        return self.literature_cards.create_or_open(payload)
 
     def reimport(self, annotation_key: str) -> dict[str, Any]:
         with self.lock, self.state.lock:

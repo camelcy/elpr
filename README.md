@@ -6,7 +6,7 @@
 
 - 自动轮询 Zotero 的 `highlight` 与 `image` annotation。
 - `Zotero parent item key → Excalidraw canvas path` 稳定映射。
-- 无映射批注保留为 `pending`；安装配套 Zotero XPI 后，可从 Zotero 右键或条目详情中的 Excalidraw 区块一键创建、打开并绑定画布。
+- 无映射批注保留为 `pending`；安装配套 Zotero XPI 后，可从 Zotero 右键或条目详情中的 Excalidraw 区块一键创建、打开并绑定画布，也可按 frontmatter `zotero_key` 创建或打开 Literature 文献卡片。
 - Zotero 条目详情会显示画布关联状态和路径；新建空白画布会按统一模板生成单行手写标题，以及“主要工作”“解决问题/重要进展”“优化方向”三个彩色整理区，并以 100% 缩放打开。标题可点击回到对应 Zotero 条目；已有非空画布仍只补充缺失的标题，不改动原布局。
 - 文字批注拆成“评论/翻译”和“原文”两个独立文本块，两者统一使用支持中英文的手写字体和 Excalidraw M 号（20）字号；默认按“评论/翻译 → 原文”排列，可在插件设置中切换。
 - 图片按 Zotero PDF 坐标、本地 PDF crop box 与页面旋转信息，用 PyMuPDF 在本机裁剪。
@@ -58,7 +58,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1 -Enable
 powershell -ExecutionPolicy Bypass -File .\scripts\build-zotero-xpi.ps1
 ```
 
-在 Zotero 中打开“工具 → 插件”，从文件安装 `D:\elpr\dist\zotero-excalidraw-canvas-0.1.6.xpi`。安装后重启 Zotero；选中文献或其 PDF 附件，右键执行“创建/打开 Excalidraw 画布”，或在条目详情的“Excalidraw 画布”区块点击按钮。Windows 下会直接启动 `D:\Program Files\Obsidian\Obsidian.exe`，不经过外部协议确认框；目标文件由 Excalidraw 插件打开，避免 `.excalidraw.md` 被当作普通 Markdown。
+在 Zotero 中打开“工具 → 插件”，从文件安装 `D:\elpr\dist\zotero-excalidraw-canvas-0.1.8.xpi`。安装后重启 Zotero；选中文献或其 PDF 附件，右键执行“创建/打开 Excalidraw 画布”，或在条目详情的“Excalidraw 画布”区块点击画布或文献卡片按钮。Windows 下会直接启动 `D:\Program Files\Obsidian\Obsidian.exe`，不经过外部协议确认框；`.excalidraw.md` 仍由 Excalidraw 插件打开，普通文献卡片则通过返回的 vault 相对路径打开。
 
 ## 发布 Zotero 插件
 
@@ -69,6 +69,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build-zotero-xpi.ps1
 ## 配置与映射
 
 服务配置在 `D:\elpr\config.json`。本机 MVP 验证完成后，运行配置已经把 `annotationAllowlist` 设为 `[]`，会接收之后新增的所有支持类型批注；历史 4298 条不会被整库回灌。
+
+文献卡片目录由 `literatureFolder` 配置，默认是 `20 - 工作学习/文献/Literature`。创建卡片不会修改 `Literature.base`，Base 依靠 `type: literature`、Markdown 扩展名和目录过滤自动收录。
 
 映射文件是 `D:\elpr\data\paper_canvas_map.json`：
 

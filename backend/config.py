@@ -16,6 +16,7 @@ class ServiceConfig:
     bootstrap_limit: int = 100
     vault_path: Path = Path(r"D:\Obsidian\Steins Gate")
     images_path: str = "Excalidraw/Images"
+    literature_folder: str = "20 - 工作学习/文献/Literature"
     data_path: Path = Path(r"D:\elpr\data")
     mapping_file: Path = Path(r"D:\elpr\data\paper_canvas_map.json")
     state_file: Path = Path(r"D:\elpr\data\sync_state.json")
@@ -37,6 +38,7 @@ class ServiceConfig:
             bootstrap_limit=max(1, min(100, int(raw.get("bootstrapLimit", defaults.bootstrap_limit)))),
             vault_path=Path(raw.get("vaultPath", defaults.vault_path)),
             images_path=str(raw.get("imagesPath", defaults.images_path)).strip("/\\"),
+            literature_folder=str(raw.get("literatureFolder", defaults.literature_folder)).strip("/\\"),
             data_path=Path(raw.get("dataPath", defaults.data_path)),
             mapping_file=Path(raw.get("mappingFile", defaults.mapping_file)),
             state_file=Path(raw.get("stateFile", defaults.state_file)),

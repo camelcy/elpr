@@ -7,6 +7,7 @@
   "bootstrapLimit": 100,
   "vaultPath": "D:\\Obsidian\\Steins Gate",
   "imagesPath": "Excalidraw/Images",
+  "literatureFolder": "20 - 工作学习/文献/Literature",
   "dataPath": "D:\\elpr\\data",
   "mappingFile": "D:\\elpr\\data\\paper_canvas_map.json",
   "stateFile": "D:\\elpr\\data\\sync_state.json",

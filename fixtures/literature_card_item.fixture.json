@@ -1,0 +1,10 @@
+{
+  "parentItemKey": "TEST0001",
+  "title": "Fixture / Literature: Card?",
+  "authors": [
+    "Ada Lovelace",
+    "Alan Turing"
+  ],
+  "year": "2026",
+  "citekey": "lovelaceFixtureLiterature2026"
+}

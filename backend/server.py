@@ -73,6 +73,10 @@ class SyncRequestHandler(BaseHTTPRequestHandler):
                 result = self.server.engine.request_canvas(payload)
             elif path == "/canvas-status":
                 result = self.server.engine.canvas_status(str(payload.get("parentItemKey", "")))
+            elif path == "/literature-card-status":
+                result = self.server.engine.literature_card_status(str(payload.get("parentItemKey", "")))
+            elif path == "/literature-card":
+                result = self.server.engine.create_or_open_literature_card(payload)
             elif path == "/canvas-request/ack":
                 result = self.server.engine.acknowledge_canvas_request(payload)
             else:
