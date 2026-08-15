@@ -24,8 +24,11 @@ export interface AnnotationTextBlock {
   text: string;
 }
 
+export const HANDWRITING_FONT_FAMILY = 5;
+export const SYNCED_TEXT_FONT_SIZE = 20;
+
 export const PAPER_CANVAS_TEMPLATE = {
-  title: { x: 0, y: 0, fontSize: 36, fontFamily: 5 },
+  title: { x: 0, y: 0, fontSize: 36, fontFamily: HANDWRITING_FONT_FAMILY },
   sectionX: 74,
   sectionLabelX: 80,
   sectionWidth: 712,

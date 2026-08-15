@@ -1,5 +1,6 @@
 import { App, TFile, WorkspaceLeaf } from "obsidian";
 import {
+  HANDWRITING_FONT_FAMILY,
   PAPER_CANVAS_TEMPLATE,
   PLUGIN_DATA_KEY,
   annotationElementId,
@@ -8,6 +9,7 @@ import {
   elementSyncData,
   elementsForAnnotation,
   paperCanvasTitle,
+  SYNCED_TEXT_FONT_SIZE,
   zoteroItemLink,
   wrapTextForCanvas,
 } from "./core";
@@ -353,7 +355,8 @@ export class ExcalidrawWriter {
       ea.style.opacity = 100;
       ea.style.strokeColor = "#1e1e1e";
       ea.style.backgroundColor = "transparent";
-      ea.style.fontSize = 18;
+      ea.style.fontSize = SYNCED_TEXT_FONT_SIZE;
+      ea.style.fontFamily = HANDWRITING_FONT_FAMILY;
       const textId = ea.addText(
         x + 30,
         y + 24,

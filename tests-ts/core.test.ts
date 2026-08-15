@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  HANDWRITING_FONT_FAMILY,
   PAPER_CANVAS_TEMPLATE,
   PLUGIN_DATA_KEY,
   annotationElementId,
@@ -9,6 +10,7 @@ import {
   compareQueueItems,
   elementsForAnnotation,
   paperCanvasTitle,
+  SYNCED_TEXT_FONT_SIZE,
   wrapTextForCanvas,
   zoteroItemLink,
 } from "../src/core";
@@ -107,7 +109,9 @@ test("paper canvas template matches the standard three-section layout", () => {
       { label: "优化方向", backgroundColor: "#a5d8ff" },
     ],
   );
-  assert.equal(PAPER_CANVAS_TEMPLATE.title.fontFamily, 5);
+  assert.equal(HANDWRITING_FONT_FAMILY, 5);
+  assert.equal(SYNCED_TEXT_FONT_SIZE, 20);
+  assert.equal(PAPER_CANVAS_TEMPLATE.title.fontFamily, HANDWRITING_FONT_FAMILY);
   assert.equal(PAPER_CANVAS_TEMPLATE.title.fontSize, 36);
   assert.equal(PAPER_CANVAS_TEMPLATE.sectionWidth, 712);
   assert.equal(PAPER_CANVAS_TEMPLATE.sectionHeight, 367);
