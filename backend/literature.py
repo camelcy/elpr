@@ -7,7 +7,7 @@ import threading
 import uuid
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from .store import MappingStore
 
@@ -28,6 +28,10 @@ MACHINE_FIELDS = ("title", "authors", "year", "citekey", "doi", "zotero_key", "z
 
 class DuplicateLiteratureCardError(ValueError):
     pass
+
+
+class InstitutionResolver(Protocol):
+    def resolve(self, doi_value: str) -> list[str]: ...
 
 
 def clean_windows_filename(value: str, fallback: str) -> str:
@@ -136,7 +140,13 @@ def _atomic_create(path: Path, content: str) -> None:
 
 
 class LiteratureCardStore:
-    def __init__(self, vault_path: Path, literature_folder: str, mappings: MappingStore) -> None:
+    def __init__(
+        self,
+        vault_path: Path,
+        literature_folder: str,
+        mappings: MappingStore,
+        institution_resolver: InstitutionResolver | None = None,
+    ) -> None:
         self.vault_path = vault_path.resolve()
         normalized = literature_folder.replace("\\", "/").strip("/")
         if not normalized or re.match(r"^[A-Za-z]:", normalized):
@@ -149,6 +159,7 @@ class LiteratureCardStore:
         if not self.root.resolve().is_relative_to(self.vault_path):
             raise ValueError("literature folder must stay inside the vault")
         self.mappings = mappings
+        self.institution_resolver = institution_resolver
         self.lock = threading.RLock()
 
     def status(self, parent_item_key: str) -> dict[str, Any]:
@@ -178,6 +189,14 @@ class LiteratureCardStore:
                 }
 
             self.root.mkdir(parents=True, exist_ok=True)
+            try:
+                metadata["institutions"] = (
+                    self.institution_resolver.resolve(metadata["doi"])
+                    if self.institution_resolver is not None
+                    else [PENDING_VALUE]
+                )
+            except Exception:
+                metadata["institutions"] = [PENDING_VALUE]
             target = self._available_path(metadata["title"], key)
             _atomic_create(target, self._new_card(metadata))
             return {
@@ -257,6 +276,15 @@ class LiteratureCardStore:
             author_block = f"authors:\n  - {yaml_string(PENDING_VALUE)}\n"
         else:
             author_block = "authors: []\n"
+        institutions = metadata.get("institutions", [])
+        if institutions:
+            institution_block = "institutions:\n" + "".join(
+                f"  - {yaml_string(institution)}\n" for institution in institutions
+            )
+        elif placeholders:
+            institution_block = f"institutions:\n  - {yaml_string(PENDING_VALUE)}\n"
+        else:
+            institution_block = "institutions: []\n"
         year = metadata["year"]
         fallback = PENDING_VALUE if placeholders else ""
         title_value = yaml_string(metadata["title"] or fallback) if metadata["title"] or fallback else ""
@@ -267,6 +295,7 @@ class LiteratureCardStore:
         return {
             "title": f"title:{f' {title_value}' if title_value else ''}\n",
             "authors": author_block,
+            "institutions": institution_block,
             "year": f"year:{f' {year_value}' if year_value else ''}\n",
             "citekey": f"citekey:{f' {citekey_value}' if citekey_value else ''}\n",
             "doi": f"doi:{f' {doi_value}' if doi_value else ''}\n",
@@ -313,7 +342,7 @@ class LiteratureCardStore:
         canvas_evidence = metadata["excalidraw"] or "待填写"
         return f"""---
 type: literature
-{fields['title']}{fields['authors']}{fields['year']}{fields['citekey']}{fields['doi']}{fields['zotero_key']}reading_stage: captured
+{fields['title']}{fields['authors']}{fields['institutions']}{fields['year']}{fields['citekey']}{fields['doi']}{fields['zotero_key']}reading_stage: captured
 topics:
   - "待填写"
 questions:

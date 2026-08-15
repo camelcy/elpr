@@ -24,11 +24,31 @@ class ServiceConfig:
     image_scale: float = 4.0
     deletion_check_interval_seconds: int = 300
     annotation_allowlist: tuple[str, ...] = field(default_factory=tuple)
+    institution_metadata_enabled: bool = False
+    institution_source: str = "openalex"
+    open_alex_api_key_env: str = "OPENALEX_API_KEY"
+    institution_request_timeout_seconds: float = 5.0
+    institution_cache_file: Path = Path(r"D:\elpr\data\institution_cache.json")
+    institution_overrides_file: Path = Path(r"D:\elpr\config\institution_translations.json")
+    institution_translation_mode: str = "wikidata_then_openai"
+    institution_translation_base_url: str = ""
+    institution_translation_api_key_env: str = "INSTITUTION_TRANSLATION_API_KEY"
+    institution_translation_model: str = ""
 
     @classmethod
     def load(cls, path: Path) -> "ServiceConfig":
         raw: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
         defaults = cls()
+        institution_source = str(raw.get("institutionSource", defaults.institution_source)).strip().lower()
+        if institution_source != "openalex":
+            raise ValueError("institutionSource must be openalex")
+        translation_mode = str(
+            raw.get("institutionTranslationMode", defaults.institution_translation_mode)
+        ).strip().lower()
+        if translation_mode not in {"wikidata_only", "wikidata_then_openai", "manual_only"}:
+            raise ValueError(
+                "institutionTranslationMode must be wikidata_only, wikidata_then_openai, or manual_only"
+            )
         return cls(
             zotero_api_url=str(raw.get("zoteroApiUrl", defaults.zotero_api_url)).rstrip("/"),
             listen_host=str(raw.get("listenHost", defaults.listen_host)),
@@ -49,4 +69,40 @@ class ServiceConfig:
                 int(raw.get("deletionCheckIntervalSeconds", defaults.deletion_check_interval_seconds)),
             ),
             annotation_allowlist=tuple(str(k) for k in raw.get("annotationAllowlist", [])),
+            institution_metadata_enabled=bool(
+                raw.get("institutionMetadataEnabled", defaults.institution_metadata_enabled)
+            ),
+            institution_source=institution_source,
+            open_alex_api_key_env=str(raw.get("openAlexApiKeyEnv", defaults.open_alex_api_key_env)).strip(),
+            institution_request_timeout_seconds=max(
+                1.0,
+                min(
+                    15.0,
+                    float(
+                        raw.get(
+                            "institutionRequestTimeoutSeconds",
+                            defaults.institution_request_timeout_seconds,
+                        )
+                    ),
+                ),
+            ),
+            institution_cache_file=Path(
+                raw.get("institutionCacheFile", defaults.institution_cache_file)
+            ),
+            institution_overrides_file=Path(
+                raw.get("institutionOverridesFile", defaults.institution_overrides_file)
+            ),
+            institution_translation_mode=translation_mode,
+            institution_translation_base_url=str(
+                raw.get("institutionTranslationBaseUrl", defaults.institution_translation_base_url)
+            ).strip(),
+            institution_translation_api_key_env=str(
+                raw.get(
+                    "institutionTranslationApiKeyEnv",
+                    defaults.institution_translation_api_key_env,
+                )
+            ).strip(),
+            institution_translation_model=str(
+                raw.get("institutionTranslationModel", defaults.institution_translation_model)
+            ).strip(),
         )

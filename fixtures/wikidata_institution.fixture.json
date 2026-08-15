@@ -1,0 +1,16 @@
+{
+  "entities": {
+    "Q100000001": {
+      "labels": {
+        "en": {
+          "language": "en",
+          "value": "Institute for Quantum Optics and Quantum Information"
+        },
+        "zh-cn": {
+          "language": "zh-cn",
+          "value": "奥地利科学院量子光学与量子信息研究所"
+        }
+      }
+    }
+  }
+}

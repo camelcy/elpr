@@ -14,5 +14,15 @@
   "logFile": "D:\\elpr\\data\\service.log",
   "imageScale": 4,
   "deletionCheckIntervalSeconds": 300,
-  "annotationAllowlist": []
+  "annotationAllowlist": [],
+  "institutionMetadataEnabled": true,
+  "institutionSource": "openalex",
+  "openAlexApiKeyEnv": "OPENALEX_API_KEY",
+  "institutionRequestTimeoutSeconds": 5,
+  "institutionCacheFile": "D:\\elpr\\data\\institution_cache.json",
+  "institutionOverridesFile": "D:\\elpr\\config\\institution_translations.json",
+  "institutionTranslationMode": "wikidata_then_openai",
+  "institutionTranslationBaseUrl": "",
+  "institutionTranslationApiKeyEnv": "INSTITUTION_TRANSLATION_API_KEY",
+  "institutionTranslationModel": ""
 }
