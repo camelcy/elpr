@@ -13,6 +13,7 @@ from backend.literature import (
     LiteratureCardStore,
     _zotero_key_from_text,
     clean_windows_filename,
+    doi_url,
 )
 from backend.server import SyncHTTPServer
 from backend.store import MappingStore, StateStore
@@ -29,6 +30,7 @@ def payload(key: str = "TEST0001", title: str = "Fixture / Literature: Card?") -
         "authors": ["Ada Lovelace", "Alan Turing"],
         "year": "2026",
         "citekey": "lovelaceFixtureLiterature2026",
+        "doi": "10.1234/fixture.2026.001",
     }
 
 
@@ -39,6 +41,7 @@ title: {title}
 authors: []
 year:
 citekey:
+doi: https://doi.org/10.9999/user-preserved
 zotero_key: {key}
 reading_stage: dr
 topics:
@@ -47,7 +50,6 @@ questions:
   - "[[用户问题]]"
 one_sentence: 用户的一句话
 importance: 5
-confidence: 4
 last_reviewed: 2026-08-01
 next_review: 2026-09-01
 zotero_link:
@@ -89,13 +91,15 @@ class LiteratureCardTests(unittest.TestCase):
         self.assertIn('authors:\n  - "Ada Lovelace"\n  - "Alan Turing"', text)
         self.assertIn("year: 2026", text)
         self.assertIn('citekey: "lovelaceFixtureLiterature2026"', text)
+        self.assertIn('doi: "https://doi.org/10.1234/fixture.2026.001"', text)
         self.assertIn('zotero_key: "TEST0001"', text)
         self.assertIn("reading_stage: captured", text)
-        self.assertIn("topics: []", text)
-        self.assertIn("questions: []", text)
-        self.assertIn("one_sentence:\nimportance:\nconfidence:", text)
+        self.assertIn('topics:\n  - "待填写"', text)
+        self.assertIn('questions:\n  - "待填写"', text)
+        self.assertIn('one_sentence: "待填写"\nimportance: "待填写"', text)
+        self.assertNotIn("confidence:", text)
         self.assertIn('zotero_link: "zotero://select/library/items/TEST0001"', text)
-        self.assertIn("excalidraw:\n", text)
+        self.assertIn('excalidraw: "待填写"\n', text)
         self.assertIn("cssclasses:\n  - literature-card", text)
         self.assertIn("> 待填写", text)
         for heading in (
@@ -125,6 +129,7 @@ class LiteratureCardTests(unittest.TestCase):
         self.assertTrue(first["created"])
         self.assertFalse(second["created"])
         self.assertEqual(second["cardPath"], first["cardPath"])
+        self.assertEqual(second["updatedFields"], [])
         self.assertEqual(len(cards), 1)
 
     def test_finds_existing_card_by_frontmatter_key_not_filename(self) -> None:
@@ -159,24 +164,25 @@ class LiteratureCardTests(unittest.TestCase):
         self.assertIn(f'excalidraw: "{link}"', text)
         self.assertIn(f"- Excalidraw 证据画布：{link}", text)
 
-    def test_missing_canvas_mapping_leaves_excalidraw_empty(self) -> None:
+    def test_missing_canvas_mapping_uses_pending_placeholder(self) -> None:
         result = self.store.create_or_open(payload())
         text = self.card_path(result["cardPath"]).read_text(encoding="utf-8")
 
-        self.assertIn("excalidraw:\ndate_created:", text)
+        self.assertIn('excalidraw: "待填写"\ndate_created:', text)
         self.assertNotIn(".excalidraw.md|Excalidraw", text)
 
     def test_missing_citekey_authors_and_year_still_produces_legal_yaml_shapes(self) -> None:
         sparse = payload()
-        sparse.update({"authors": [], "year": "", "citekey": ""})
+        sparse.update({"authors": [], "year": "", "citekey": "", "doi": ""})
 
         result = self.store.create_or_open(sparse)
         text = self.card_path(result["cardPath"]).read_text(encoding="utf-8")
         frontmatter = text.split("---", 2)[1]
 
-        self.assertIn("authors: []", frontmatter)
-        self.assertRegex(frontmatter, r"(?m)^year:$")
-        self.assertRegex(frontmatter, r"(?m)^citekey:$")
+        self.assertIn('authors:\n  - "待填写"', frontmatter)
+        self.assertRegex(frontmatter, r'(?m)^year: "待填写"$')
+        self.assertRegex(frontmatter, r'(?m)^citekey: "待填写"$')
+        self.assertRegex(frontmatter, r'(?m)^doi: "待填写"$')
         self.assertEqual(_zotero_key_from_text(text), "TEST0001")
 
     def test_existing_user_fields_body_and_nonempty_machine_fields_are_preserved(self) -> None:
@@ -197,6 +203,13 @@ class LiteratureCardTests(unittest.TestCase):
         self.assertIn("one_sentence: 用户的一句话", after)
         self.assertIn("用户关系：[[另一篇文献]]", after)
         self.assertIn("date_modified: 2026-08-02", after)
+        self.assertIn("doi: https://doi.org/10.9999/user-preserved", after)
+
+    def test_doi_is_normalized_to_a_clickable_url(self) -> None:
+        self.assertEqual(doi_url("10.1234/example.1"), "https://doi.org/10.1234/example.1")
+        self.assertEqual(doi_url("https://dx.doi.org/10.1234/example.1"), "https://doi.org/10.1234/example.1")
+        self.assertEqual(doi_url(""), "")
+        self.assertEqual(doi_url("https://example.com/not-a-doi"), "")
 
     def test_duplicate_zotero_key_stops_before_writing(self) -> None:
         self.store.root.mkdir(parents=True)
@@ -263,11 +276,20 @@ class LiteratureCardHTTPFlowTests(unittest.TestCase):
                 self.assertFalse(post("/literature-card-status", fixture)["exists"])
                 created = post("/literature-card", fixture)
                 self.assertTrue(created["created"])
+                card_path = config.vault_path / Path(created["cardPath"])
+                first_text = card_path.read_text(encoding="utf-8")
+                self.assertIn('authors:\n  - "Ada Lovelace"\n  - "Alan Turing"', first_text)
+                self.assertIn('topics:\n  - "待填写"', first_text)
+                self.assertIn('questions:\n  - "待填写"', first_text)
+                self.assertIn('doi: "https://doi.org/10.1234/fixture.2026.001"', first_text)
+                self.assertIn("# 关键发现\n\n待填写", first_text)
+                self.assertNotIn("confidence:", first_text)
                 self.assertTrue(post("/literature-card-status", fixture)["exists"])
                 reopened = post("/literature-card", fixture)
                 self.assertFalse(reopened["created"])
                 self.assertEqual(reopened["cardPath"], created["cardPath"])
-                self.assertTrue((config.vault_path / Path(created["cardPath"])).exists())
+                self.assertEqual(reopened["updatedFields"], [])
+                self.assertEqual(card_path.read_text(encoding="utf-8"), first_text)
             finally:
                 server.shutdown()
                 server.server_close()

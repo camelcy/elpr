@@ -22,7 +22,8 @@ WINDOWS_RESERVED_NAMES = {
     *(f"COM{number}" for number in range(1, 10)),
     *(f"LPT{number}" for number in range(1, 10)),
 }
-MACHINE_FIELDS = ("title", "authors", "year", "citekey", "zotero_key", "zotero_link", "excalidraw")
+PENDING_VALUE = "待填写"
+MACHINE_FIELDS = ("title", "authors", "year", "citekey", "doi", "zotero_key", "zotero_link", "excalidraw")
 
 
 class DuplicateLiteratureCardError(ValueError):
@@ -41,6 +42,12 @@ def clean_windows_filename(value: str, fallback: str) -> str:
 
 def yaml_string(value: str) -> str:
     return json.dumps(value, ensure_ascii=False)
+
+
+def doi_url(value: Any) -> str:
+    doi = re.sub(r"\s+", "", str(value or "")).strip()
+    doi = re.sub(r"^(?:https?://(?:dx\.)?doi\.org/|doi:\s*)", "", doi, flags=re.IGNORECASE)
+    return f"https://doi.org/{doi}" if re.fullmatch(r"10\.\d{4,9}/\S+", doi, flags=re.IGNORECASE) else ""
 
 
 def excalidraw_wikilink(canvas_path: str) -> str:
@@ -80,9 +87,13 @@ def _field_spans(frontmatter: str) -> dict[str, tuple[int, int, str]]:
 def _field_has_value(block: str) -> bool:
     first, *continuation = block.splitlines()
     value = first.split(":", 1)[1].strip()
+    normalized_value = value.strip("'\"")
+    if normalized_value == PENDING_VALUE:
+        return False
     if value not in {"", "''", '""', "[]", "null", "Null", "NULL", "~"}:
         return True
-    return any(line.strip() and not line.lstrip().startswith("#") for line in continuation)
+    values = [line.strip() for line in continuation if line.strip() and not line.lstrip().startswith("#")]
+    return any(not (line.startswith("-") and line[1:].strip().strip("'\"") == PENDING_VALUE) for line in values)
 
 
 def _zotero_key_from_text(text: str) -> str:
@@ -198,6 +209,7 @@ class LiteratureCardStore:
             "authors": authors,
             "year": re.sub(r"\s+", " ", str(payload.get("year", ""))).strip()[:20],
             "citekey": re.sub(r"\s+", " ", str(payload.get("citekey", ""))).strip()[:300],
+            "doi": doi_url(payload.get("doi", ""))[:1000],
             "zotero_key": key,
             "zotero_link": f"zotero://select/library/items/{key}",
             "excalidraw": excalidraw_wikilink(canvas_path),
@@ -237,21 +249,27 @@ class LiteratureCardStore:
     def _relative(self, path: Path) -> str:
         return path.resolve().relative_to(self.vault_path).as_posix()
 
-    def _machine_blocks(self, metadata: dict[str, Any]) -> dict[str, str]:
+    def _machine_blocks(self, metadata: dict[str, Any], *, placeholders: bool = False) -> dict[str, str]:
         authors = metadata["authors"]
-        author_block = "authors: []\n" if not authors else "authors:\n" + "".join(
-            f"  - {yaml_string(author)}\n" for author in authors
-        )
+        if authors:
+            author_block = "authors:\n" + "".join(f"  - {yaml_string(author)}\n" for author in authors)
+        elif placeholders:
+            author_block = f"authors:\n  - {yaml_string(PENDING_VALUE)}\n"
+        else:
+            author_block = "authors: []\n"
         year = metadata["year"]
-        title_value = yaml_string(metadata["title"]) if metadata["title"] else ""
-        year_value = year if re.fullmatch(r"\d{4}", year) else yaml_string(year) if year else ""
-        citekey_value = yaml_string(metadata["citekey"]) if metadata["citekey"] else ""
-        excalidraw_value = yaml_string(metadata["excalidraw"]) if metadata["excalidraw"] else ""
+        fallback = PENDING_VALUE if placeholders else ""
+        title_value = yaml_string(metadata["title"] or fallback) if metadata["title"] or fallback else ""
+        year_value = year if re.fullmatch(r"\d{4}", year) else yaml_string(year or fallback) if year or fallback else ""
+        citekey_value = yaml_string(metadata["citekey"] or fallback) if metadata["citekey"] or fallback else ""
+        doi_value = yaml_string(metadata["doi"] or fallback) if metadata["doi"] or fallback else ""
+        excalidraw_value = yaml_string(metadata["excalidraw"] or fallback) if metadata["excalidraw"] or fallback else ""
         return {
             "title": f"title:{f' {title_value}' if title_value else ''}\n",
             "authors": author_block,
             "year": f"year:{f' {year_value}' if year_value else ''}\n",
             "citekey": f"citekey:{f' {citekey_value}' if citekey_value else ''}\n",
+            "doi": f"doi:{f' {doi_value}' if doi_value else ''}\n",
             "zotero_key": f"zotero_key: {yaml_string(metadata['zotero_key'])}\n",
             "zotero_link": f"zotero_link: {yaml_string(metadata['zotero_link'])}\n",
             "excalidraw": f"excalidraw:{f' {excalidraw_value}' if excalidraw_value else ''}\n",
@@ -290,19 +308,20 @@ class LiteratureCardStore:
         return updated_fields
 
     def _new_card(self, metadata: dict[str, Any]) -> str:
-        fields = self._machine_blocks(metadata)
+        fields = self._machine_blocks(metadata, placeholders=True)
         today = date.today().isoformat()
         canvas_evidence = metadata["excalidraw"] or "待填写"
         return f"""---
 type: literature
-{fields['title']}{fields['authors']}{fields['year']}{fields['citekey']}{fields['zotero_key']}reading_stage: captured
-topics: []
-questions: []
-one_sentence:
-importance:
-confidence:
-last_reviewed:
-next_review:
+{fields['title']}{fields['authors']}{fields['year']}{fields['citekey']}{fields['doi']}{fields['zotero_key']}reading_stage: captured
+topics:
+  - "待填写"
+questions:
+  - "待填写"
+one_sentence: "待填写"
+importance: "待填写"
+last_reviewed: "待填写"
+next_review: "待填写"
 {fields['zotero_link']}{fields['excalidraw']}date_created: {today}
 date_modified: {today}
 cssclasses:
@@ -366,7 +385,7 @@ cssclasses:
 %%
 填写约定：
 - reading_stage 仅使用 captured、qr、dr-candidate、dr、synthesized、archived。
-- importance 与 confidence 使用 1–5。
+- importance 使用 1–5。
 - topics 与 questions 优先填写指向现有笔记的 wikilink。
 - 长摘要、方法、发现和局限只写在正文，不塞入 Properties。
 %%

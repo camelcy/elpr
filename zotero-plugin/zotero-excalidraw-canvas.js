@@ -101,6 +101,7 @@ var ZoteroExcalidrawCanvas = {
 			firstCreator: creator.lastName || creator.name || creator.firstName || "",
 			authors,
 			citekey: this.citationKey(item),
+			doi: String(item.getField("DOI") || "").trim(),
 		};
 	},
 

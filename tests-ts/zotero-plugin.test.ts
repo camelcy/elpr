@@ -18,7 +18,7 @@ function loadPlugin(): Record<string, any> {
   return context.ZoteroExcalidrawCanvas;
 }
 
-test("literature card metadata uses authors and an optional citation key", () => {
+test("literature card metadata includes authors, citation key, and DOI", () => {
   const plugin = loadPlugin();
   const item = {
     id: 1,
@@ -31,6 +31,7 @@ test("literature card metadata uses authors and an optional citation key", () =>
       title: "Fixture title",
       date: "2026-08-15",
       citationKey: "lovelaceFixture2026",
+      DOI: "10.1234/fixture.2026.001",
       extra: "",
     })[field] ?? "",
   };
@@ -44,6 +45,7 @@ test("literature card metadata uses authors and an optional citation key", () =>
       firstCreator: "Lovelace",
       authors: ["Ada Lovelace"],
       citekey: "lovelaceFixture2026",
+      doi: "10.1234/fixture.2026.001",
     },
   );
 });
