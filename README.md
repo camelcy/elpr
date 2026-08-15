@@ -28,8 +28,8 @@ D:\elpr
 ├─ dist\main.js             已构建插件
 ├─ dist\*.xpi               已构建 Zotero 插件
 ├─ zotero-plugin\           Zotero XPI 源码
-├─ data\                    映射、状态与脱敏日志
-├─ fixtures\                代表性画布只读复制件
+├─ data\                    本机映射、状态与日志（不纳入版本控制）
+├─ fixtures\                可提交的测试与示例数据
 ├─ scripts\                 安装、启动、暂停与卸载脚本
 ├─ tests\                   Python 测试
 ├─ tests-ts\                插件核心测试
@@ -72,7 +72,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build-zotero-xpi.ps1
 }
 ```
 
-当前 `UHM9ZELW` 已连接到对应真实画布；这项映射只影响之后的新批注，不会把 fixture 中的测试卡片复制到真实画布。需要恢复测试模式时，可参考 `data\paper_canvas_map.fixture.example.json`。也可以打开目标 Excalidraw 画布，执行命令“将当前画布绑定到 Zotero 文献”，输入 Zotero 文献的 parent item key。一个画布可以绑定多篇文献；插件不会根据含糊链接擅自推断。
+当前 `UHM9ZELW` 已连接到对应真实画布；这项映射只影响之后的新批注，不会把 fixture 中的测试卡片复制到真实画布。需要恢复测试模式时，可参考 `fixtures\paper_canvas_map.fixture.example.json`。也可以打开目标 Excalidraw 画布，执行命令“将当前画布绑定到 Zotero 文献”，输入 Zotero 文献的 parent item key。一个画布可以绑定多篇文献；插件不会根据含糊链接擅自推断。
 
 ## 使用
 
