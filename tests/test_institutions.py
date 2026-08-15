@@ -74,6 +74,8 @@ class InstitutionMetadataTests(unittest.TestCase):
             "institution_overrides_file": self.root / "institution_translations.json",
             "institution_translation_mode": "wikidata_only",
             "institution_request_timeout_seconds": 3.0,
+            "vault_path": self.root / "vault",
+            "literature_folder": LITERATURE_FOLDER,
         }
         values.update(changes)
         return ServiceConfig(**values)
@@ -81,7 +83,18 @@ class InstitutionMetadataTests(unittest.TestCase):
     def service(self, http: FixtureHttp, **changes: object) -> InstitutionMetadataService:
         return InstitutionMetadataService(self.config(**changes), http_json=http)
 
-    def test_openalex_extracts_multiple_institutions_and_deduplicates_in_first_seen_order(self) -> None:
+    def literature_card(self, name: str, institutions: list[str]) -> Path:
+        root = self.root / "vault" / Path(LITERATURE_FOLDER)
+        root.mkdir(parents=True, exist_ok=True)
+        path = root / f"{name}.md"
+        values = "\n".join(f"  - {json.dumps(value, ensure_ascii=False)}" for value in institutions)
+        path.write_text(
+            f"---\ntype: literature\ninstitutions:\n{values}\n---\n\n待填写\n",
+            encoding="utf-8",
+        )
+        return path
+
+    def test_openalex_keeps_only_the_first_institution(self) -> None:
         http = FixtureHttp(fixture("openalex_work_institutions.fixture.json"))
         service = self.service(http, institution_translation_mode="manual_only")
 
@@ -91,7 +104,6 @@ class InstitutionMetadataTests(unittest.TestCase):
             result,
             [
                 "Institute for Quantum Optics and Quantum Information, Austrian Academy of Sciences（待填写）",
-                "Aix-Marseille University（待填写）",
             ],
         )
         self.assertEqual(sum("/works/" in call[1] for call in http.calls), 1)
@@ -99,6 +111,53 @@ class InstitutionMetadataTests(unittest.TestCase):
         self.assertTrue(
             all(call[2].get("User-Agent", "").startswith("zotero-excalidraw-sync/") for call in http.calls)
         )
+
+    def test_pending_translation_is_learned_from_existing_card_and_added_to_overrides(self) -> None:
+        english_name = "Aix-Marseille University"
+        chinese_name = "艾克斯-马赛大学"
+        self.literature_card("Existing", [f"{english_name}（{chinese_name}）"])
+        http = FixtureHttp(work_with(1))
+        service = self.service(http, institution_translation_mode="manual_only")
+
+        result = service.resolve(DOI)
+
+        self.assertEqual(result, [f"{english_name}（{chinese_name}）"])
+        overrides = json.loads(self.config().institution_overrides_file.read_text(encoding="utf-8"))
+        self.assertEqual(overrides, {english_name: chinese_name})
+
+    def test_no_existing_translation_stays_pending_without_creating_mapping(self) -> None:
+        http = FixtureHttp(work_with(1))
+        service = self.service(http, institution_translation_mode="manual_only")
+
+        result = service.resolve(DOI)
+
+        self.assertEqual(result, ["Aix-Marseille University（待填写）"])
+        self.assertFalse(self.config().institution_overrides_file.exists())
+
+    def test_conflicting_existing_translations_are_not_learned(self) -> None:
+        english_name = "Aix-Marseille University"
+        self.literature_card("First", [f"{english_name}（译名甲大学）"])
+        self.literature_card("Second", [f"{english_name}（译名乙大学）"])
+        http = FixtureHttp(work_with(1))
+        service = self.service(http, institution_translation_mode="manual_only")
+
+        result = service.resolve(DOI)
+
+        self.assertEqual(result, [f"{english_name}（待填写）"])
+        self.assertFalse(self.config().institution_overrides_file.exists())
+
+    def test_cached_pending_translation_can_later_be_learned_from_existing_card(self) -> None:
+        english_name = "Aix-Marseille University"
+        chinese_name = "艾克斯-马赛大学"
+        http = FixtureHttp(work_with(1))
+        service = self.service(http, institution_translation_mode="manual_only")
+        self.assertEqual(service.resolve(DOI), [f"{english_name}（待填写）"])
+        self.literature_card("Added Later", [f"{english_name}（{chinese_name}）"])
+
+        result = service.resolve(DOI)
+
+        self.assertEqual(result, [f"{english_name}（{chinese_name}）"])
+        self.assertEqual(sum("/works/" in call[1] for call in http.calls), 1)
 
     def test_manual_override_precedes_wikidata_and_translation_service(self) -> None:
         self.config().institution_overrides_file.write_text(

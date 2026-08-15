@@ -12,6 +12,8 @@ from urllib.error import HTTPError
 from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
+import yaml
+
 from .config import ServiceConfig
 from .store import atomic_write_json
 
@@ -25,6 +27,8 @@ MAX_CACHE_TRANSLATIONS = 10000
 MAX_CACHE_FILE_BYTES = 10_000_000
 MAX_OVERRIDES_FILE_BYTES = 1_000_000
 MAX_RESPONSE_BYTES = 1_000_000
+MAX_LITERATURE_CARD_BYTES = 1_000_000
+MAX_LITERATURE_CARDS = 20_000
 EXTERNAL_API_HEADERS = {
     "Accept": "application/json",
     "User-Agent": "zotero-excalidraw-sync/0.1.3 (local desktop integration)",
@@ -205,7 +209,11 @@ class InstitutionMetadataService:
         self.cache = InstitutionCache(config.institution_cache_file)
         self.http_json = http_json
         self.logger = logger or logging.getLogger("zotero-excalidraw-sync")
-        self.overrides = self._load_overrides(config.institution_overrides_file)
+        self.overrides_path = config.institution_overrides_file
+        self.overrides_lock = threading.RLock()
+        self.overrides = self._load_overrides(self.overrides_path)
+        literature_parts = config.literature_folder.replace("\\", "/").strip("/").split("/")
+        self.literature_root = config.vault_path.joinpath(*literature_parts)
 
     def resolve(self, doi_value: str) -> list[str]:
         doi = _doi_key(doi_value)
@@ -228,6 +236,9 @@ class InstitutionMetadataService:
                 )
         else:
             self.logger.info("institution doi=%s source=openalex cache=hit", doi)
+
+        institutions = institutions[:1]
+        self.cache.set_doi(doi, institutions)
 
         try:
             resolved = self._resolve_names(institutions)
@@ -259,8 +270,6 @@ class InstitutionMetadataService:
         if not isinstance(authorships, list):
             raise ValueError("invalid_openalex_work")
 
-        result: list[dict[str, str]] = []
-        seen: set[str] = set()
         for authorship in authorships:
             embedded = authorship.get("institutions") if isinstance(authorship, dict) else None
             if not isinstance(embedded, list):
@@ -269,14 +278,8 @@ class InstitutionMetadataService:
                 institution = _institution_record(value)
                 if institution is None:
                     continue
-                aliases = self._aliases(institution)
-                if aliases & seen:
-                    continue
-                seen.update(aliases)
-                result.append(institution)
-                if len(result) >= MAX_INSTITUTIONS_PER_WORK:
-                    return result
-        return result
+                return [institution]
+        return []
 
     def _resolve_names(self, institutions: list[dict[str, str]]) -> list[str]:
         results: list[str | None] = [None] * len(institutions)
@@ -293,8 +296,11 @@ class InstitutionMetadataService:
             cached = self.cache.translation(cache_key)
             if cached is not None:
                 chinese_name = cached["chineseName"] or None
-                results[index] = self._display(institution["name"], chinese_name)
-                self.logger.info("institution id=%s source=%s cache=hit", identifier, cached["source"])
+                if chinese_name:
+                    results[index] = self._display(institution["name"], chinese_name)
+                    self.logger.info("institution id=%s source=%s cache=hit", identifier, cached["source"])
+                else:
+                    results[index] = self._vault_fallback(institution, cache_key)
                 continue
             unresolved.append((index, institution, cache_key))
 
@@ -317,12 +323,10 @@ class InstitutionMetadataService:
                     results[index] = self._display(institution["name"], translated)
                     self.cache.set_translation(cache_key, translated, "openai")
                 else:
-                    results[index] = self._display(institution["name"], None)
-                    self.cache.set_translation(cache_key, None, "pending")
+                    results[index] = self._vault_fallback(institution, cache_key)
         else:
             for index, institution, cache_key in unresolved:
-                results[index] = self._display(institution["name"], None)
-                self.cache.set_translation(cache_key, None, "pending")
+                results[index] = self._vault_fallback(institution, cache_key)
 
         return [value for value in results if value]
 
@@ -474,14 +478,97 @@ class InstitutionMetadataService:
                     return self.overrides[key]
         return None
 
-    @staticmethod
-    def _aliases(institution: dict[str, str]) -> set[str]:
-        aliases = {f"name:{_normalized_name(institution['name'])}"}
-        if institution["ror"]:
-            aliases.add(f"ror:{institution['ror'].casefold().rstrip('/')}")
-        if institution["id"]:
-            aliases.add(f"openalex:{institution['id'].casefold().rstrip('/')}")
-        return aliases
+    def _vault_fallback(self, institution: dict[str, str], cache_key: str) -> str:
+        identifier = self._log_identifier(institution)
+        chinese_name = self._vault_chinese_name(institution["name"], identifier)
+        if chinese_name:
+            chinese_name = self._remember_override(institution["name"], chinese_name, identifier)
+            self.cache.set_translation(cache_key, chinese_name, "literature_card")
+            self.logger.info("institution id=%s source=literature_card cache=miss", identifier)
+            return self._display(institution["name"], chinese_name)
+        self.cache.set_translation(cache_key, None, "pending")
+        return self._display(institution["name"], None)
+
+    def _vault_chinese_name(self, english_name: str, identifier: str) -> str | None:
+        if not self.literature_root.exists():
+            return None
+        normalized_target = _normalized_name(english_name)
+        candidates: set[str] = set()
+        paths = sorted(self.literature_root.rglob("*.md"), key=lambda path: path.as_posix().casefold())
+        for path in paths[:MAX_LITERATURE_CARDS]:
+            try:
+                if path.stat().st_size > MAX_LITERATURE_CARD_BYTES:
+                    continue
+                text = path.read_text(encoding="utf-8-sig")
+                match = re.match(r"^---[ \t]*\r?\n(.*?)^---[ \t]*(?:\r?\n|$)", text, re.DOTALL | re.MULTILINE)
+                if not match:
+                    continue
+                frontmatter = yaml.safe_load(match.group(1))
+            except (OSError, UnicodeError, yaml.YAMLError):
+                continue
+            if not isinstance(frontmatter, dict) or frontmatter.get("type") != "literature":
+                continue
+            institutions = frontmatter.get("institutions")
+            if not isinstance(institutions, list):
+                continue
+            for value in institutions:
+                if not isinstance(value, str):
+                    continue
+                display = _compact_text(value, MAX_INSTITUTION_NAME_LENGTH + MAX_CHINESE_NAME_LENGTH + 2)
+                parsed = re.fullmatch(r"(.+)（(.+)）", display)
+                if not parsed or _normalized_name(parsed.group(1)) != normalized_target:
+                    continue
+                chinese_name = _valid_chinese_name(parsed.group(2))
+                if chinese_name and chinese_name != PENDING_VALUE:
+                    candidates.add(chinese_name)
+        if len(candidates) == 1:
+            return next(iter(candidates))
+        if len(candidates) > 1:
+            self.logger.warning(
+                "institution id=%s source=literature_card error=ConflictingTranslations count=%s",
+                identifier,
+                len(candidates),
+            )
+        return None
+
+    def _remember_override(self, english_name: str, chinese_name: str, identifier: str) -> str:
+        with self.overrides_lock:
+            raw: dict[str, Any] = {}
+            if self.overrides_path.exists():
+                try:
+                    if self.overrides_path.stat().st_size > MAX_OVERRIDES_FILE_BYTES:
+                        raise ValueError("overrides_too_large")
+                    value = json.loads(self.overrides_path.read_text(encoding="utf-8"))
+                    if not isinstance(value, dict) or len(value) >= MAX_CACHE_TRANSLATIONS:
+                        raise ValueError("invalid_overrides")
+                    raw = value
+                except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as error:
+                    self.logger.warning(
+                        "institution id=%s source=manual error=%s",
+                        identifier,
+                        _error_type(error),
+                    )
+                    return chinese_name
+            existing = _valid_chinese_name(raw.get(english_name))
+            if existing:
+                chinese_name = existing
+            else:
+                raw[english_name] = chinese_name
+                try:
+                    atomic_write_json(self.overrides_path, raw)
+                except OSError as error:
+                    self.logger.warning(
+                        "institution id=%s source=manual error=%s",
+                        identifier,
+                        _error_type(error),
+                    )
+            self._index_override(english_name, chinese_name)
+            return chinese_name
+
+    def _index_override(self, key: str, chinese_name: str) -> None:
+        self.overrides[key] = chinese_name
+        self.overrides[key.casefold()] = chinese_name
+        self.overrides[_normalized_name(key)] = chinese_name
 
     @staticmethod
     def _cache_key(institution: dict[str, str]) -> str:
