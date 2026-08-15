@@ -2,13 +2,15 @@ $ErrorActionPreference = 'Stop'
 $projectPath = Split-Path -Parent $PSScriptRoot
 $sourcePath = Join-Path $projectPath 'zotero-plugin'
 $manifestPath = Join-Path $sourcePath 'manifest.json'
+$distPath = Join-Path $projectPath 'dist'
 
 if (-not (Test-Path -LiteralPath $manifestPath)) {
     throw "Zotero plugin manifest not found: $sourcePath"
 }
 $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
-$outputPath = Join-Path $projectPath "dist\zotero-excalidraw-canvas-$($manifest.version).xpi"
-$archivePath = Join-Path $projectPath "dist\zotero-excalidraw-canvas-$($manifest.version).zip"
+New-Item -ItemType Directory -Force -Path $distPath | Out-Null
+$outputPath = Join-Path $distPath "zotero-excalidraw-canvas-$($manifest.version).xpi"
+$archivePath = Join-Path $distPath "zotero-excalidraw-canvas-$($manifest.version).zip"
 if (Test-Path -LiteralPath $outputPath) {
     Remove-Item -LiteralPath $outputPath -Force
 }
