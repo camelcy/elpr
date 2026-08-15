@@ -3,7 +3,7 @@
 本文件面向使用者，记录会影响安装、配置和使用方式的版本变化。
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
-## [未发布]
+## [未发布] - Obsidian 0.1.3 / Zotero 0.1.10
 
 ### 新增
 

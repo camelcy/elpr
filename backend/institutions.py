@@ -25,6 +25,10 @@ MAX_CACHE_TRANSLATIONS = 10000
 MAX_CACHE_FILE_BYTES = 10_000_000
 MAX_OVERRIDES_FILE_BYTES = 1_000_000
 MAX_RESPONSE_BYTES = 1_000_000
+EXTERNAL_API_HEADERS = {
+    "Accept": "application/json",
+    "User-Agent": "zotero-excalidraw-sync/0.1.3 (local desktop integration)",
+}
 OPENALEX_INSTITUTION_ID_PATTERN = re.compile(r"^I\d+$")
 WIKIDATA_ID_PATTERN = re.compile(r"^Q\d+$")
 HAN_CHARACTER_PATTERN = re.compile(r"[\u3400-\u9fff]")
@@ -250,7 +254,7 @@ class InstitutionMetadataService:
             query["api_key"] = api_key
         url = f"https://api.openalex.org/works/https://doi.org/{quote(doi, safe='/():')}"
         url += "?" + urlencode(query)
-        value = self.http_json("GET", url, {"Accept": "application/json"}, None, self.timeout)
+        value = self.http_json("GET", url, EXTERNAL_API_HEADERS, None, self.timeout)
         authorships = value.get("authorships") if isinstance(value, dict) else None
         if not isinstance(authorships, list):
             raise ValueError("invalid_openalex_work")
@@ -334,14 +338,14 @@ class InstitutionMetadataService:
         url = f"https://api.openalex.org/institutions/{openalex_id}"
         url += "?" + urlencode(query)
         try:
-            record = self.http_json("GET", url, {"Accept": "application/json"}, None, self.timeout)
+            record = self.http_json("GET", url, EXTERNAL_API_HEADERS, None, self.timeout)
             ids = record.get("ids") if isinstance(record, dict) else None
             wikidata_url = ids.get("wikidata") if isinstance(ids, dict) else ""
             wikidata_id = _compact_text(wikidata_url, 200).rstrip("/").rsplit("/", 1)[-1]
             if not WIKIDATA_ID_PATTERN.fullmatch(wikidata_id):
                 return None
             entity_url = f"https://www.wikidata.org/wiki/Special:EntityData/{wikidata_id}.json"
-            entity_data = self.http_json("GET", entity_url, {"Accept": "application/json"}, None, self.timeout)
+            entity_data = self.http_json("GET", entity_url, EXTERNAL_API_HEADERS, None, self.timeout)
             entities = entity_data.get("entities") if isinstance(entity_data, dict) else None
             entity = entities.get(wikidata_id) if isinstance(entities, dict) else None
             labels = entity.get("labels") if isinstance(entity, dict) else None

@@ -96,6 +96,9 @@ class InstitutionMetadataTests(unittest.TestCase):
         )
         self.assertEqual(sum("/works/" in call[1] for call in http.calls), 1)
         self.assertTrue(all(call[4] == 3.0 for call in http.calls))
+        self.assertTrue(
+            all(call[2].get("User-Agent", "").startswith("zotero-excalidraw-sync/") for call in http.calls)
+        )
 
     def test_manual_override_precedes_wikidata_and_translation_service(self) -> None:
         self.config().institution_overrides_file.write_text(

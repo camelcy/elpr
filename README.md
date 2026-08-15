@@ -58,7 +58,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1 -Enable
 powershell -ExecutionPolicy Bypass -File .\scripts\build-zotero-xpi.ps1
 ```
 
-在 Zotero 中打开“工具 → 插件”，从文件安装 `D:\elpr\dist\zotero-excalidraw-canvas-0.1.8.xpi`。安装后重启 Zotero；选中文献或其 PDF 附件，右键执行“创建/打开 Excalidraw 画布”，或在条目详情的“Excalidraw 画布”区块点击画布或文献卡片按钮。Windows 下会直接启动 `D:\Program Files\Obsidian\Obsidian.exe`，不经过外部协议确认框；`.excalidraw.md` 仍由 Excalidraw 插件打开，普通文献卡片则通过返回的 vault 相对路径打开。
+在 Zotero 中打开“工具 → 插件”，从文件安装 `D:\elpr\dist\zotero-excalidraw-canvas-0.1.10.xpi`。安装后重启 Zotero；选中文献或其 PDF 附件，右键执行“创建/打开 Excalidraw 画布”，或在条目详情的“Excalidraw 画布”区块点击画布或文献卡片按钮。Windows 下会直接启动 `D:\Program Files\Obsidian\Obsidian.exe`，不经过外部协议确认框；`.excalidraw.md` 仍由 Excalidraw 插件打开，普通文献卡片则通过返回的 vault 相对路径打开。
 
 ## 发布 Zotero 插件
 

@@ -1,7 +1,7 @@
 {
   "id": "zotero-excalidraw-sync",
   "name": "Zotero Excalidraw Sync",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "minAppVersion": "1.5.7",
   "description": "Safely imports local Zotero annotations into an Excalidraw inbox.",
   "author": "Local",
