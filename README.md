@@ -72,6 +72,14 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build-zotero-xpi.ps1
 
 文献卡片目录由 `literatureFolder` 配置，默认是 `20 - 工作学习/文献/Literature`。创建卡片不会修改 `Literature.base`，Base 依靠 `type: literature`、Markdown 扩展名和目录过滤自动收录。
 
+新文献卡片可按 DOI 从 OpenAlex 读取作者所属机构，并写入 `institutions` YAML 列表。该功能只在首次创建时运行；打开已有卡片不会查询网络或覆盖用户内容。复制 `config\institution_translations.example.json` 为 `config\institution_translations.json` 可维护 ROR ID、OpenAlex ID或英文机构名对应的人工中文名。相关配置见 `config.example.json`：
+
+- `institutionMetadataEnabled` 控制是否启用；设为 `false` 时不发送机构请求。
+- `institutionTranslationMode` 支持 `manual_only`、`wikidata_only` 和 `wikidata_then_openai`。
+- OpenAlex 与翻译服务密钥只从 `openAlexApiKeyEnv`、`institutionTranslationApiKeyEnv` 指定的环境变量读取。
+- DOI 查询与中文翻译结果缓存在 `data\institution_cache.json`。接口不可用、无 DOI 或无机构记录时，卡片仍会创建，并写入“待填写”占位。
+- OpenAI-compatible 翻译仅在 base URL、模型、密钥环境变量均配置后启用；否则自动退化为人工覆盖表和 Wikidata。
+
 映射文件是 `D:\elpr\data\paper_canvas_map.json`：
 
 ```json
@@ -99,7 +107,7 @@ npm test
 npm run build
 ```
 
-测试覆盖：页码与 sort index 排序、annotation key 去重、首次 source snapshot、源更新不覆盖、源删除只标记、真实 `KZ9MWXAM` PDF 坐标裁剪，以及 TypeScript 类型检查。服务健康检查：
+测试覆盖：页码与 sort index 排序、annotation key 去重、首次 source snapshot、源更新不覆盖、源删除只标记、机构提取/去重/翻译/缓存/异常降级、真实 `KZ9MWXAM` PDF 坐标裁剪，以及 TypeScript 类型检查。服务健康检查：
 
 ```powershell
 curl.exe http://127.0.0.1:27119/health

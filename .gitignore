@@ -8,5 +8,7 @@ config.json
 data/paper_canvas_map.json
 data/*.log
 data/sync_state.json
+data/institution_cache.json
 data/service.pid
 data/*.tmp
+config/institution_translations.json

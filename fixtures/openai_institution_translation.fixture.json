@@ -1,0 +1,10 @@
+{
+  "choices": [
+    {
+      "message": {
+        "role": "assistant",
+        "content": "[{\"id\":\"https://openalex.org/I100000002\",\"chinese_name\":\"艾克斯-马赛大学\"}]"
+      }
+    }
+  ]
+}
