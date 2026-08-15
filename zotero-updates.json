@@ -3,6 +3,17 @@
     "zotero-excalidraw-canvas@elpr.invalid": {
       "updates": [
         {
+          "version": "0.1.10",
+          "update_link": "https://github.com/camelcy/elpr/releases/download/0.1.10/zotero-excalidraw-canvas-0.1.10.xpi",
+          "update_hash": "sha256:a15651f012ff8c3059006baf7198cdd9c1bac2618322e888fe5872ce422f30fc",
+          "applications": {
+            "zotero": {
+              "strict_min_version": "8.0",
+              "strict_max_version": "9.*"
+            }
+          }
+        },
+        {
           "version": "0.1.9",
           "update_link": "https://github.com/camelcy/elpr/releases/download/0.1.9/zotero-excalidraw-canvas-0.1.9.xpi",
           "update_hash": "sha256:7b08263b5518bb21c4ee662c06138dfe8386c26dfaca3fb2145dc4b78107f01f",
