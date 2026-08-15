@@ -1,7 +1,7 @@
 # Zotero 批注自动同步到 Obsidian Excalidraw
 
 这是一个完全本地运行的 MVP：Python 服务只读 Zotero 本地 HTTP API、维护增量状态并裁剪图片批注；Obsidian 插件读取本地队列，并通过 Excalidraw Automate API 把内容安全写入画布。运行时不调用外部 AI、云端数据库或在线同步服务，也不写 Zotero SQLite。
-测试仓库
+
 ## 已实现
 
 - 自动轮询 Zotero 的 `highlight` 与 `image` annotation。
