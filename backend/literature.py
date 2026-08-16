@@ -24,6 +24,22 @@ WINDOWS_RESERVED_NAMES = {
 }
 PENDING_VALUE = "待填写"
 MACHINE_FIELDS = ("title", "authors", "year", "citekey", "doi", "zotero_key", "zotero_link", "excalidraw")
+DEFAULT_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "templates" / "literature-card.md"
+TEMPLATE_PLACEHOLDERS = (
+    "title",
+    "authors",
+    "institutions",
+    "year",
+    "citekey",
+    "doi",
+    "zotero_key",
+    "zotero_link",
+    "excalidraw",
+    "date_created",
+    "date_modified",
+    "zotero_link_url",
+    "canvas_evidence",
+)
 
 
 class DuplicateLiteratureCardError(ValueError):
@@ -146,6 +162,7 @@ class LiteratureCardStore:
         literature_folder: str,
         mappings: MappingStore,
         institution_resolver: InstitutionResolver | None = None,
+        template_path: Path | None = None,
     ) -> None:
         self.vault_path = vault_path.resolve()
         normalized = literature_folder.replace("\\", "/").strip("/")
@@ -160,6 +177,7 @@ class LiteratureCardStore:
             raise ValueError("literature folder must stay inside the vault")
         self.mappings = mappings
         self.institution_resolver = institution_resolver
+        self.template_path = template_path or DEFAULT_TEMPLATE_PATH
         self.lock = threading.RLock()
 
     def status(self, parent_item_key: str) -> dict[str, Any]:
@@ -339,83 +357,21 @@ class LiteratureCardStore:
     def _new_card(self, metadata: dict[str, Any]) -> str:
         fields = self._machine_blocks(metadata, placeholders=True)
         today = date.today().isoformat()
-        canvas_evidence = metadata["excalidraw"] or "待填写"
-        return f"""---
-type: literature
-{fields['title']}{fields['authors']}{fields['institutions']}{fields['year']}{fields['citekey']}{fields['doi']}{fields['zotero_key']}reading_stage: captured
-topics:
-  - "待填写"
-questions:
-  - "待填写"
-one_sentence: "待填写"
-importance: "待填写"
-last_reviewed: "待填写"
-next_review: "待填写"
-{fields['zotero_link']}{fields['excalidraw']}date_created: {today}
-date_modified: {today}
-cssclasses:
-  - literature-card
----
+        values = {
+            **fields,
+            "date_created": today,
+            "date_modified": today,
+            "zotero_link_url": metadata["zotero_link"],
+            "canvas_evidence": metadata["excalidraw"] or PENDING_VALUE,
+        }
+        try:
+            template = self.template_path.read_text(encoding="utf-8-sig")
+        except OSError as error:
+            raise RuntimeError(f"无法读取文献卡片模板：{self.template_path}") from error
 
-# 一句话记忆
-
-> [!abstract] 十秒摘要
-> 待填写
-
-# 为什么读它
-
-待填写
-
-# 问题—方法—发现
-
-## 研究问题
-
-待填写
-
-## 方法与数据
-
-待填写
-
-## 关键发现
-
-待填写
-
-## 局限性
-
-待填写
-
-# 与其他文献的关系
-
-## 支持
-
-待填写
-
-## 反驳
-
-待填写
-
-## 扩展
-
-待填写
-
-## 方法相似
-
-待填写
-
-# 可复用证据
-
-- [打开 Zotero 条目]({metadata['zotero_link']})
-- Excalidraw 证据画布：{canvas_evidence}
-
-# 尚未解决的问题
-
-待填写
-
-%%
-填写约定：
-- reading_stage 仅使用 captured、qr、dr-candidate、dr、synthesized、archived。
-- importance 使用 1–5。
-- topics 与 questions 优先填写指向现有笔记的 wikilink。
-- 长摘要、方法、发现和局限只写在正文，不塞入 Properties。
-%%
-"""
+        missing = [name for name in TEMPLATE_PLACEHOLDERS if f"{{{{{name}}}}}" not in template]
+        if missing:
+            raise ValueError(f"文献卡片模板缺少占位符：{', '.join(missing)}")
+        for name, value in values.items():
+            template = template.replace(f"{{{{{name}}}}}", value)
+        return template

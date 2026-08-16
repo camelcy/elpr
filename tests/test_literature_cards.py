@@ -106,21 +106,17 @@ class LiteratureCardTests(unittest.TestCase):
         self.assertIn('zotero_link: "zotero://select/library/items/TEST0001"', text)
         self.assertIn('excalidraw: "待填写"\n', text)
         self.assertIn("cssclasses:\n  - literature-card", text)
-        self.assertIn("> 待填写", text)
+        self.assertIn("> [!abstract] 摘要", text)
         for heading in (
             "# 一句话记忆",
-            "# 为什么读它",
-            "# 问题—方法—发现",
+            "# 研究背景",
+            "# 解决的问题—方法—结果",
             "## 研究问题",
-            "## 方法与数据",
-            "## 关键发现",
-            "## 局限性",
-            "# 与其他文献的关系",
-            "## 支持",
-            "## 反驳",
-            "## 扩展",
-            "## 方法相似",
-            "# 可复用证据",
+            "## 方法",
+            "## 关键结果",
+            "# 局限性",
+            "# 与其他文献的联系",
+            "# 原文和画布链接",
             "# 尚未解决的问题",
         ):
             self.assertIn(heading, text)
@@ -321,7 +317,7 @@ class LiteratureCardHTTPFlowTests(unittest.TestCase):
                 self.assertIn('topics:\n  - "待填写"', first_text)
                 self.assertIn('questions:\n  - "待填写"', first_text)
                 self.assertIn('doi: "https://doi.org/10.1234/fixture.2026.001"', first_text)
-                self.assertIn("# 关键发现\n\n待填写", first_text)
+                self.assertIn("## 关键结果", first_text)
                 self.assertNotIn("confidence:", first_text)
                 self.assertTrue(post("/literature-card-status", fixture)["exists"])
                 reopened = post("/literature-card", fixture)

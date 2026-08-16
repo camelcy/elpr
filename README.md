@@ -72,6 +72,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build-zotero-xpi.ps1
 
 文献卡片目录由 `literatureFolder` 配置，默认是 `20 - 工作学习/文献/Literature`。创建卡片不会修改 `Literature.base`，Base 依靠 `type: literature`、Markdown 扩展名和目录过滤自动收录。
 
+新卡片使用项目内的 `templates/literature-card.md` 作为模板。可直接修改其中的正文标题和固定字段；双花括号包围的动态占位符需要保留。服务每次新建卡片时都会重新读取该文件，因此保存后无需重新构建插件，只需新建一张卡片验证。Obsidian 中的 `40 - Obsidian/模板/文献卡片模板.md` 是便于查看和编辑的副本，不会自动覆盖项目模板；程序始终以项目内文件为准。
+
 新文献卡片可按 DOI 从 OpenAlex 读取作者所属机构，并将首次出现的第一单位写入 `institutions` YAML 列表。该功能只在首次创建时运行；打开已有卡片不会查询网络或覆盖用户内容。复制 `config\institution_translations.example.json` 为 `config\institution_translations.json` 可维护 ROR ID、OpenAlex ID或英文机构名对应的人工中文名。所有翻译来源都无法给出中文名时，服务会只读扫描既有文献卡片；若同一英文机构只有一个已填写中文译名，就将它加入人工映射并用于新卡片，未找到或存在冲突时仍写“待填写”。相关配置见 `config.example.json`：
 
 - `institutionMetadataEnabled` 控制是否启用；设为 `false` 时不发送机构请求。
