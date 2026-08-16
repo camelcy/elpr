@@ -3,7 +3,13 @@
 本文件面向使用者，记录会影响安装、配置和使用方式的版本变化。
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
-## [未发布] - Obsidian 0.1.3 / Zotero 0.1.10
+## [未发布]
+
+### 新增
+
+- 文献卡片正文与固定字段改用项目内 `templates/literature-card.md`；保存模板后，新建卡片会直接使用最新内容，无需重新构建插件。
+
+## [Obsidian 0.1.3 / Zotero 0.1.10] - 2026-08-15
 
 ### 新增
 
