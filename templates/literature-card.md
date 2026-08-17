@@ -7,8 +7,6 @@ questions:
   - "待填写"
 one_sentence: "待填写"
 importance: "待填写"
-last_reviewed: "待填写"
-next_review: "待填写"
 {{zotero_link}}{{excalidraw}}date_created: {{date_created}}
 date_modified: {{date_modified}}
 cssclasses:
@@ -37,7 +35,7 @@ cssclasses:
 # 原文和画布链接
 
 - [打开 Zotero 条目]({{zotero_link_url}})
-- Excalidraw 证据画布：{{canvas_evidence}}
+- Excalidraw 画布：{{canvas_evidence}}
 
 # 尚未解决的问题
 

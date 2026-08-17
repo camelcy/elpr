@@ -15,6 +15,7 @@ export interface ElementLike {
   y: number;
   width: number;
   height: number;
+  strokeColor?: string;
   isDeleted?: boolean;
   customData?: Record<string, unknown>;
 }
@@ -26,6 +27,44 @@ export interface AnnotationTextBlock {
 
 export const HANDWRITING_FONT_FAMILY = 5;
 export const SYNCED_TEXT_FONT_SIZE = 20;
+
+export const ANNOTATION_LAYOUT = {
+  cardWidth: 680,
+  columnGap: 66,
+  firstColumnGap: 160,
+  rowGap: 40,
+} as const;
+
+export const SPECIAL_ANNOTATION_SECTIONS = [
+  {
+    key: "professional-terms",
+    annotationColor: "#f19837",
+    backgroundColor: "#ffd8a8",
+    x: -855,
+    y: 120,
+    width: 409,
+    height: 367,
+    wordXOffset: 30,
+    commentXOffset: 205,
+    wordWrapWidth: 16,
+    commentWrapWidth: 18,
+  },
+  {
+    key: "vocabulary",
+    annotationColor: "#e56eee",
+    backgroundColor: "#eebefa",
+    x: -1021,
+    y: 570,
+    width: 824,
+    height: 367,
+    wordXOffset: 30,
+    commentXOffset: 220,
+    wordWrapWidth: 18,
+    commentWrapWidth: 54,
+  },
+] as const;
+
+export type SpecialAnnotationSection = (typeof SPECIAL_ANNOTATION_SECTIONS)[number];
 
 export const PAPER_CANVAS_TEMPLATE = {
   title: { x: 0, y: 0, fontSize: 36, fontFamily: HANDWRITING_FONT_FAMILY },
@@ -67,6 +106,25 @@ export function elementSyncData(element: ElementLike): Record<string, unknown> |
   return value && typeof value === "object" ? (value as Record<string, unknown>) : undefined;
 }
 
+export function normalizeAnnotationColor(color: string): string {
+  return color.trim().toLowerCase();
+}
+
+export function specialAnnotationSection(color: string): SpecialAnnotationSection | undefined {
+  const normalized = normalizeAnnotationColor(color);
+  return SPECIAL_ANNOTATION_SECTIONS.find((section) => section.annotationColor === normalized);
+}
+
+export function elementAnnotationColor(element: ElementLike): string {
+  const data = elementSyncData(element);
+  const taggedColor = typeof data?.annotationColor === "string" ? data.annotationColor : "";
+  if (taggedColor) return normalizeAnnotationColor(taggedColor);
+  const role = typeof data?.role === "string" ? data.role : "";
+  return role.endsWith("-background") && element.strokeColor
+    ? normalizeAnnotationColor(element.strokeColor)
+    : "";
+}
+
 export function elementsForAnnotation(elements: ElementLike[], annotationKey: string): ElementLike[] {
   return elements.filter((element) => elementSyncData(element)?.annotationKey === annotationKey);
 }
@@ -85,6 +143,33 @@ export function calculateBounds(elements: ElementLike[]): Bounds {
     }),
     { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity },
   );
+}
+
+export function nextAnnotationColumnPlacement(
+  elements: ElementLike[],
+  annotationColor: string,
+  fallback: { x: number; y: number },
+): { x: number; y: number } {
+  const normalizedColor = normalizeAnnotationColor(annotationColor);
+  const regularElements = elements.filter((element) => {
+    const color = elementAnnotationColor(element);
+    return Boolean(elementSyncData(element)?.annotationKey)
+      && Boolean(color)
+      && !specialAnnotationSection(color)
+      && !element.isDeleted;
+  });
+  const sameColor = regularElements.filter(
+    (element) => elementAnnotationColor(element) === normalizedColor,
+  );
+  if (sameColor.length > 0) {
+    const bounds = calculateBounds(sameColor);
+    return { x: bounds.minX, y: bounds.maxY + ANNOTATION_LAYOUT.rowGap };
+  }
+  if (regularElements.length > 0) {
+    const bounds = calculateBounds(regularElements);
+    return { x: bounds.maxX + ANNOTATION_LAYOUT.columnGap, y: fallback.y };
+  }
+  return fallback;
 }
 
 export function annotationTextBlocks(item: QueueItem, order: DisplayOrder): AnnotationTextBlock[] {

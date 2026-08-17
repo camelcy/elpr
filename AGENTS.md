@@ -8,4 +8,5 @@
 ## 测试与打包
 
 - 插件代码修改后如需测试，在测试通过后直接生成对应的可安装或发布产物，不只停留在测试命令：Zotero 插件运行 `scripts/build-zotero-xpi.ps1` 生成 XPI，Obsidian 插件运行 `npm run build` 生成构建产物。
-- 打包完成后报告产物路径、版本和验证结果，但不要自动安装、暂存、提交或推送，除非用户明确要求。
+- Obsidian 插件构建成功后，默认运行 `scripts/install.ps1 -VaultPath 'D:\Obsidian\Steins Gate' -SkipBuild -Enable`，安装并启用到 Steins Gate；用户明确要求不安装时除外。
+- 打包完成后报告产物路径、版本、验证和安装结果。Zotero XPI 不自动安装；不要自动暂存、提交或推送，除非用户明确要求。

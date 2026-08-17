@@ -1,15 +1,20 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  ANNOTATION_LAYOUT,
   HANDWRITING_FONT_FAMILY,
   PAPER_CANVAS_TEMPLATE,
   PLUGIN_DATA_KEY,
+  SPECIAL_ANNOTATION_SECTIONS,
   annotationElementId,
   annotationTextBlocks,
   canvasBaseName,
   compareQueueItems,
+  elementAnnotationColor,
   elementsForAnnotation,
+  nextAnnotationColumnPlacement,
   paperCanvasTitle,
+  specialAnnotationSection,
   SYNCED_TEXT_FONT_SIZE,
   wrapTextForCanvas,
   zoteroItemLink,
@@ -117,6 +122,49 @@ test("paper canvas template matches the standard three-section layout", () => {
   assert.equal(PAPER_CANVAS_TEMPLATE.sectionHeight, 367);
   assert.deepEqual(PAPER_CANVAS_TEMPLATE.roundness, { type: 3 });
   assert.equal(PAPER_CANVAS_TEMPLATE.initialViewport.zoom.value, 1);
+});
+
+test("orange and purple annotations use one shared glossary section per color", () => {
+  assert.deepEqual(
+    SPECIAL_ANNOTATION_SECTIONS.map(({ key, annotationColor, backgroundColor }) => ({
+      key,
+      annotationColor,
+      backgroundColor,
+    })),
+    [
+      { key: "professional-terms", annotationColor: "#f19837", backgroundColor: "#ffd8a8" },
+      { key: "vocabulary", annotationColor: "#e56eee", backgroundColor: "#eebefa" },
+    ],
+  );
+  assert.equal(specialAnnotationSection("#F19837")?.key, "professional-terms");
+  assert.equal(specialAnnotationSection("#e56eee")?.key, "vocabulary");
+  assert.equal(specialAnnotationSection("#ffd400"), undefined);
+});
+
+test("regular annotation colors get top-aligned columns and stack within their own color", () => {
+  const element = (id: string, color: string, x: number, y: number, height: number) => ({
+    id,
+    x,
+    y,
+    width: ANNOTATION_LAYOUT.cardWidth,
+    height,
+    customData: {
+      [PLUGIN_DATA_KEY]: { annotationKey: id, role: "source-background", annotationColor: color },
+    },
+  });
+  const yellow = element("yellow", "#ffd400", 946, 120, 300);
+  const green = element("green", "#5fb236", 1692, 120, 200);
+  const fallback = { x: 946, y: 120 };
+
+  assert.equal(elementAnnotationColor(yellow), "#ffd400");
+  assert.deepEqual(nextAnnotationColumnPlacement([yellow, green], "#ffd400", fallback), {
+    x: 946,
+    y: 460,
+  });
+  assert.deepEqual(nextAnnotationColumnPlacement([yellow, green], "#ff6666", fallback), {
+    x: 2438,
+    y: 120,
+  });
 });
 
 test("paper canvas title stays on one line", () => {

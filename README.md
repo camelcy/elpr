@@ -7,11 +7,12 @@
 - 自动轮询 Zotero 的 `highlight` 与 `image` annotation。
 - `Zotero parent item key → Excalidraw canvas path` 稳定映射。
 - 无映射批注保留为 `pending`；安装配套 Zotero XPI 后，可从 Zotero 右键或条目详情中的 Excalidraw 区块一键创建、打开并绑定画布，也可按 frontmatter `zotero_key` 创建或打开 Literature 文献卡片。
-- Zotero 条目详情会显示画布关联状态和路径；新建空白画布会按统一模板生成单行手写标题，以及“主要工作”“解决问题/重要进展”“优化方向”三个彩色整理区，并以 100% 缩放打开。标题可点击回到对应 Zotero 条目；已有非空画布仍只补充缺失的标题，不改动原布局。
-- 文字批注拆成“评论/翻译”和“原文”两个独立文本块，两者统一使用支持中英文的手写字体和 Excalidraw M 号（20）字号；默认按“评论/翻译 → 原文”排列，可在插件设置中切换。
+- Zotero 条目详情会显示画布关联状态和路径；新建空白画布会按统一模板生成单行手写标题、“主要工作”“解决问题/重要进展”“优化方向”三个彩色整理区，以及左侧各一个橙色专业名词框和紫色单词框，并以 100% 缩放打开。标题可点击回到对应 Zotero 条目；已有非空画布仍只补充缺失的标题，不改动原布局。
+- 普通颜色的文字批注拆成“评论/翻译”和“原文”两个独立文本块，两者统一使用支持中英文的手写字体和 Excalidraw M 号（20）字号；不同颜色分列并顶端对齐，同色批注按 PDF 顺序向下排列。默认按“评论/翻译 → 原文”排列，可在插件设置中切换。
+- 橙色专业名词和紫色单词不生成重复卡片；每种颜色共用一个汇总框，每行左侧显示原词并链接 Zotero，右侧显示无链接的批注，新条目逐行向下追加。
 - 图片按 Zotero PDF 坐标、本地 PDF crop box 与页面旋转信息，用 PyMuPDF 在本机裁剪。
-- 每个文本块（图片批注则为图片本身）都直接链接到 Zotero，不再生成页码或单独按钮；链接格式为 `zotero://open-pdf/library/items/<attachmentKey>?page=<page>&annotation=<annotationKey>`。
-- 文字批注保留位于底层的颜色背景，但背景不锁定、也不与文本编组；图片批注只显示图片本身，不生成背景框。
+- 普通批注的每个文本块（图片批注则为图片本身）都直接链接到 Zotero；橙色和紫色汇总框仅原词带链接。链接格式为 `zotero://open-pdf/library/items/<attachmentKey>?page=<page>&annotation=<annotationKey>`。
+- 普通文字批注保留位于底层的颜色背景，但背景不锁定、也不与文本编组；橙色和紫色批注只使用各自的共享汇总框；图片批注只显示图片本身，不生成背景框。
 - annotation key 写入 Excalidraw `customData`，并在服务状态中记录 canvas path、element IDs 与首次 source snapshot。
 - 已导入内容不会因再次同步而重新生成；正文、位置和缩放不会被重置。
 - Zotero 源内容变化时只增加 `source updated` 提示，不覆盖画布内容。

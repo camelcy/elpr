@@ -1,18 +1,23 @@
 import { App, TFile, WorkspaceLeaf } from "obsidian";
 import {
+  ANNOTATION_LAYOUT,
   HANDWRITING_FONT_FAMILY,
   PAPER_CANVAS_TEMPLATE,
   PLUGIN_DATA_KEY,
+  SPECIAL_ANNOTATION_SECTIONS,
   annotationElementId,
   annotationTextBlocks,
   calculateBounds,
   elementSyncData,
   elementsForAnnotation,
+  nextAnnotationColumnPlacement,
   paperCanvasTitle,
+  specialAnnotationSection,
   SYNCED_TEXT_FONT_SIZE,
   zoteroItemLink,
   wrapTextForCanvas,
 } from "./core";
+import type { SpecialAnnotationSection } from "./core";
 import type { CanvasRequestItem, DisplayOrder, QueueItem } from "./types";
 
 interface ExcalidrawElementLike {
@@ -175,6 +180,32 @@ export class ExcalidrawWriter {
       );
       this.tagPaperTemplateElement(ea, backgroundId, parentItemKey, "template-section-background", section.key);
     }
+    for (const section of SPECIAL_ANNOTATION_SECTIONS) {
+      this.addSpecialAnnotationSection(ea, parentItemKey, section);
+    }
+  }
+
+  private addSpecialAnnotationSection(
+    ea: ExcalidrawAutomateLike,
+    parentItemKey: string,
+    section: SpecialAnnotationSection,
+  ): string {
+    ea.style.strokeColor = PAPER_CANVAS_TEMPLATE.strokeColor;
+    ea.style.backgroundColor = section.backgroundColor;
+    ea.style.fillStyle = "solid";
+    ea.style.strokeWidth = PAPER_CANVAS_TEMPLATE.strokeWidth;
+    ea.style.roughness = 1;
+    ea.style.roundness = PAPER_CANVAS_TEMPLATE.roundness;
+    ea.style.opacity = 100;
+    const id = ea.addRect(
+      section.x,
+      section.y,
+      section.width,
+      section.height,
+      annotationElementId(parentItemKey, `template-${section.key}-background`),
+    );
+    this.tagPaperTemplateElement(ea, id, parentItemKey, "template-special-background", section.key);
+    return id;
   }
 
   private tagPaperTemplateElement(
@@ -331,7 +362,10 @@ export class ExcalidrawWriter {
     item: QueueItem,
     placementOverride?: { x: number; y: number },
   ): Promise<string[]> {
-    const placement = placementOverride ?? this.nextPlacement(ea, scene);
+    const specialSection = specialAnnotationSection(item.source.color);
+    if (specialSection) return this.addSpecialAnnotationRow(ea, scene, item, specialSection);
+
+    const placement = placementOverride ?? this.nextPlacement(ea, scene, item);
     const x = placement.x;
     let y = placement.y;
 
@@ -345,12 +379,14 @@ export class ExcalidrawWriter {
       const backgroundId = ea.addRect(
         x,
         y,
-        680,
+        ANNOTATION_LAYOUT.cardWidth,
         estimatedHeight,
         annotationElementId(item.annotationKey, role === "comment" ? "cb" : "sb"),
       );
       const background = ea.getElement(backgroundId);
-      this.tag(ea, backgroundId, item.annotationKey, `${role}-background`);
+      this.tag(ea, backgroundId, item.annotationKey, `${role}-background`, {
+        annotationColor: item.source.color,
+      });
 
       ea.style.opacity = 100;
       ea.style.strokeColor = "#1e1e1e";
@@ -367,7 +403,10 @@ export class ExcalidrawWriter {
       const textElement = ea.getElement(textId);
       textElement.link = item.zoteroLink;
       background.height = Math.max(estimatedHeight, textElement.height + 48);
-      this.tag(ea, textId, item.annotationKey, `${role}-text`, { zoteroLink: item.zoteroLink });
+      this.tag(ea, textId, item.annotationKey, `${role}-text`, {
+        annotationColor: item.source.color,
+        zoteroLink: item.zoteroLink,
+      });
       y += background.height + 24;
     };
 
@@ -390,7 +429,10 @@ export class ExcalidrawWriter {
         image.height *= factor;
       }
       image.link = item.zoteroLink;
-      this.tag(ea, imageId, item.annotationKey, "source-image", { zoteroLink: item.zoteroLink });
+      this.tag(ea, imageId, item.annotationKey, "source-image", {
+        annotationColor: item.source.color,
+        zoteroLink: item.zoteroLink,
+      });
       y += image.height + 24;
     };
 
@@ -405,28 +447,158 @@ export class ExcalidrawWriter {
     return added.map((element) => element.id);
   }
 
-  private nextPlacement(ea: ExcalidrawAutomateLike, scene: ExcalidrawElementLike[]): { x: number; y: number } {
-    const all = [...scene, ...ea.getElements()];
-    const inboxElements = all.filter((element) => {
+  private addSpecialAnnotationRow(
+    ea: ExcalidrawAutomateLike,
+    scene: ExcalidrawElementLike[],
+    item: QueueItem,
+    section: SpecialAnnotationSection,
+  ): string[] {
+    let all = this.uniqueElements([...scene, ...ea.getElements()]);
+    let container = all.find((element) => {
       const data = elementSyncData(element);
-      return typeof data?.annotationKey === "string" && !element.isDeleted;
+      return data?.role === "template-special-background" && data?.sectionKey === section.key && !element.isDeleted;
     });
-    if (inboxElements.length > 0) {
-      const bounds = calculateBounds(inboxElements);
-      return { x: bounds.minX, y: bounds.maxY + 40 };
+    let containerIsNew = false;
+    if (!container) {
+      const id = this.addSpecialAnnotationSection(ea, item.parentItemKey, section);
+      container = ea.getElement(id);
+      containerIsNew = true;
+      all = this.uniqueElements([...all, container]);
     }
+
+    const existingRows = all.filter((element) => {
+      const data = elementSyncData(element);
+      return data?.specialSectionKey === section.key
+        && typeof data?.annotationKey === "string"
+        && !element.isDeleted;
+    });
+    const rowY = existingRows.length > 0
+      ? calculateBounds(existingRows).maxY + 24
+      : container.y + 30;
+
+    ea.style.opacity = 100;
+    ea.style.strokeColor = "#1e1e1e";
+    ea.style.backgroundColor = "transparent";
+    ea.style.fontSize = SYNCED_TEXT_FONT_SIZE;
+    ea.style.fontFamily = HANDWRITING_FONT_FAMILY;
+    const wordId = ea.addText(
+      container.x + section.wordXOffset,
+      rowY,
+      wrapTextForCanvas(item.source.text.trim(), section.wordWrapWidth),
+      { autoResize: true, textAlign: "left" },
+      annotationElementId(item.annotationKey, "s"),
+    );
+    const word = ea.getElement(wordId);
+    word.link = item.zoteroLink;
+    this.tag(ea, wordId, item.annotationKey, "source-text", {
+      annotationColor: item.source.color,
+      specialSectionKey: section.key,
+      zoteroLink: item.zoteroLink,
+    });
+
+    const ids = [wordId];
+    let rowHeight = word.height;
+    const comment = item.source.comment.trim();
+    if (comment) {
+      const commentId = ea.addText(
+        container.x + section.commentXOffset,
+        rowY,
+        wrapTextForCanvas(comment, section.commentWrapWidth),
+        { autoResize: true, textAlign: "left" },
+        annotationElementId(item.annotationKey, "c"),
+      );
+      const commentElement = ea.getElement(commentId);
+      commentElement.link = null;
+      this.tag(ea, commentId, item.annotationKey, "comment-text", {
+        annotationColor: item.source.color,
+        specialSectionKey: section.key,
+      });
+      ids.push(commentId);
+      rowHeight = Math.max(rowHeight, commentElement.height);
+    }
+
+    const requiredHeight = rowY + rowHeight + 30 - container.y;
+    if (requiredHeight > container.height) {
+      let editable = container;
+      const containerIsPending = ea.getElements().some((element) => element.id === container.id);
+      if (!containerIsNew && !containerIsPending) {
+        ea.copyViewElementsToEAforEditing([container]);
+        editable = ea.getElement(container.id);
+      }
+      editable.height = requiredHeight;
+      this.touch(editable);
+      container.height = requiredHeight;
+      if (section.key === "professional-terms") {
+        this.keepSpecialSectionsSeparated(ea, scene, container.y + requiredHeight);
+      }
+    }
+
+    const added = ea.getElements().filter(
+      (element) => !element.isDeleted && elementSyncData(element)?.annotationKey === item.annotationKey,
+    );
+    scene.push(...added);
+    return ids;
+  }
+
+  private keepSpecialSectionsSeparated(
+    ea: ExcalidrawAutomateLike,
+    scene: ExcalidrawElementLike[],
+    professionalTermsBottom: number,
+  ): void {
+    const vocabulary = SPECIAL_ANNOTATION_SECTIONS.find((section) => section.key === "vocabulary");
+    if (!vocabulary) return;
+    const all = this.uniqueElements([...scene, ...ea.getElements()]);
+    const targets = all.filter((element) => {
+      const data = elementSyncData(element);
+      return !element.isDeleted && (
+        (data?.role === "template-special-background" && data?.sectionKey === vocabulary.key)
+        || data?.specialSectionKey === vocabulary.key
+      );
+    });
+    const container = targets.find(
+      (element) => elementSyncData(element)?.role === "template-special-background",
+    );
+    if (!container) return;
+    const minimumY = professionalTermsBottom + 83;
+    const delta = minimumY - container.y;
+    if (delta <= 0) return;
+
+    const pendingIds = new Set(ea.getElements().map((element) => element.id));
+    for (const target of targets) {
+      const originalY = target.y;
+      if (!pendingIds.has(target.id)) ea.copyViewElementsToEAforEditing([target]);
+      const editable = ea.getElement(target.id);
+      editable.y = originalY + delta;
+      this.touch(editable);
+      target.y = originalY + delta;
+    }
+  }
+
+  private nextPlacement(
+    ea: ExcalidrawAutomateLike,
+    scene: ExcalidrawElementLike[],
+    item: QueueItem,
+  ): { x: number; y: number } {
+    const all = this.uniqueElements([...scene, ...ea.getElements()]);
     const firstTemplateBox = all.find((element) => {
       const data = elementSyncData(element);
       return data?.role === "template-section-background" && data?.sectionKey === "main-work" && !element.isDeleted;
     });
     if (firstTemplateBox) {
-      return {
-        x: firstTemplateBox.x + firstTemplateBox.width + 160,
+      return nextAnnotationColumnPlacement(all, item.source.color, {
+        x: firstTemplateBox.x + firstTemplateBox.width + ANNOTATION_LAYOUT.firstColumnGap,
         y: firstTemplateBox.y,
-      };
+      });
     }
     const bounds = calculateBounds(scene);
-    return { x: bounds.maxX + 160, y: bounds.minY };
+    return nextAnnotationColumnPlacement(all, item.source.color, {
+      x: bounds.maxX + ANNOTATION_LAYOUT.firstColumnGap,
+      y: bounds.minY,
+    });
+  }
+
+  private uniqueElements(elements: ExcalidrawElementLike[]): ExcalidrawElementLike[] {
+    return [...new Map(elements.map((element) => [element.id, element])).values()];
   }
 
   private removeLegacyHeaders(ea: ExcalidrawAutomateLike, scene: ExcalidrawElementLike[]): boolean {
